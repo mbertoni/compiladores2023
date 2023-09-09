@@ -29,11 +29,14 @@ data STm info ty var =
   | SConst info Const
   | SLam info (var, ty) (STm info ty var)
   | SApp info (STm info ty var) (STm info ty var)
-  | SPrint info String (STm info ty var)
+  | SPrint info  String (STm info ty var)
   | SBinaryOp info BinaryOp (STm info ty var) (STm info ty var)
+  | SUnaryOp info UnaryOp (STm info ty var)
   | SFix info (var, ty) (var, ty) (STm info ty var)
   | SIfZ info (STm info ty var) (STm info ty var) (STm info ty var)
+  | SIf info [ ( STm info ty var, STm info ty var) ]
   | SLet info (var, ty) (STm info ty var) (STm info ty var)
+  | SFun info (var, ty) [(var, ty)] (STm info ty var) (STm info ty var)
   deriving (Show, Functor)
 
 -- | AST de Tipos
@@ -49,6 +52,8 @@ type STerm = STm Pos Ty Name -- ^ 'STm' tiene 'Name's como variables ligadas y l
 newtype Const = CNat Int
   deriving Show
 
+data UnaryOp = Bang
+  deriving Show
 data BinaryOp = Add | Sub
   deriving Show
 

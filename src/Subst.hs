@@ -36,10 +36,10 @@ varChanger local bound t = go 0 t where
   go n (BinaryOp p op t u) = BinaryOp p op (go n t) (go n u)
   go n (Let p v vty m (Sc1 o)) = Let p v vty (go n m) (Sc1 (go (n+1) o))
 
--- `open n t` reemplaza la primera variable ligada
+-- `open nm t` reemplaza la primera variable ligada
 -- en `t` (que debe ser un Scope con una sola variable que 
--- escapa al término) por el nombre libre `n`.
--- La variable Bound 0 pasa a ser Free n. El nombre `n`
+-- escapa al término) por el nombre libre `nm`.
+-- La variable Bound 0 pasa a ser Free nm. El nombre `nm`
 -- debe ser fresco en el término para que no ocurra shadowing.
 open :: Name -> Scope info Var -> Tm info Var
 open nm (Sc1 t) = varChanger (\_ p n -> V p (Free n)) bnd t
@@ -92,6 +92,8 @@ close nm t = Sc1 (varChanger lcl (\_ p i -> V p (Bound i)) t)
 -- Similar a `close` pero para el caso de cerrar dos nombres.
 close2 :: Name -> Name -> Tm info Var -> Scope2 info Var
 close2 nm1 nm2 t = Sc2 (varChanger lcl (\_ p i -> V p (Bound i)) t)
-  where lcl depth p y | y == nm2 = V p (Bound depth)
-                      | y == nm1 = V p (Bound (depth + 1))
-                      | otherwise = V p (Free y)
+  where
+    lcl depth p y
+      | y == nm2 = V p (Bound depth)
+      | y == nm1 = V p (Bound (depth + 1))
+      | otherwise = V p (Free y)

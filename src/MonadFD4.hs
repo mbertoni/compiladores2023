@@ -64,7 +64,7 @@ y otras operaciones derivadas de ellas, como por ejemplo
    - @modify :: (GlEnv -> GlEnv) -> m ()@
    - @gets :: (GlEnv -> a) -> m a@  
 -}
-class (MonadIO m, MonadState GlEnv m, MonadError Error m, MonadReader Conf m) => MonadFD4 m where
+class (MonadIO m, MonadState GlEnv m, MonadError Error m, MonadReader Conf m) => MonadFD4 m
 
 getOpt :: MonadFD4 m => m Bool
 getOpt = asks opt
@@ -133,7 +133,8 @@ catchErrors c = catchError (Just <$> c)
 type FD4 = ReaderT Conf (StateT GlEnv (ExceptT Error IO))
 
 -- | Esta es una instancia vacía, ya que 'MonadFD4' no tiene funciones miembro.
-instance MonadFD4 FD4
+instance MonadFD4 FD4 
+
 
 -- 'runFD4\'' corre una computación de la mónad 'FD4' en el estado inicial 'Global.initialEnv' 
 runFD4' :: FD4 a -> Conf -> IO (Either Error (a, GlEnv))
@@ -141,3 +142,4 @@ runFD4' c conf =  runExceptT $ runStateT (runReaderT c conf)  initialEnv
 
 runFD4:: FD4 a -> Conf -> IO (Either Error a)
 runFD4 c conf = fmap fst <$> runFD4' c conf
+

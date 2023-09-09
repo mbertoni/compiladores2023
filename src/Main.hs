@@ -107,7 +107,7 @@ repl args = do
 
 loadFile ::  MonadFD4 m => FilePath -> m [Decl STerm]
 loadFile f = do
-    let filename = reverse(dropWhile isSpace (reverse f))
+    let filename = reverse (dropWhile isSpace (reverse f))
     x <- liftIO $ catch (readFile filename)
                (\e -> do let err = show (e :: IOException)
                          hPutStrLn stderr ("No se pudo abrir el archivo " ++ filename ++ ": " ++ err)

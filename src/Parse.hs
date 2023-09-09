@@ -35,9 +35,9 @@ lexer = Tok.makeTokenParser langDef
 langDef :: LanguageDef u
 langDef = emptyDef {
          commentLine    = "#",
-         reservedNames = ["let", "rec","fun", "fix", "then", "else","in",
-                           "ifz", "print","Nat","type"],
-         reservedOpNames = ["->",":","=","+","-"]
+         reservedNames = ["let", "rec","fun", "fix", "then", "else","in", "end",
+                           "ifz", "if", "print","Nat","type"],
+         reservedOpNames = ["->",":",";","=","+","-","!"]
         }
 
 whiteSpace :: P ()
@@ -104,12 +104,16 @@ printOp = do
   a <- atom
   return (SPrint i str a)
 
+unary :: String -> UnaryOp -> Operator String () Identity STerm
+unary s f = Ex.Prefix (reservedOp s >> return (SUnaryOp NoPos f))
+
 binary :: String -> BinaryOp -> Assoc -> Operator String () Identity STerm
 binary s f = Ex.Infix (reservedOp s >> return (SBinaryOp NoPos f))
 
-table :: [[Operator String () Identity STerm]]
-table = [[binary "+" Add Ex.AssocLeft,
-          binary "-" Sub Ex.AssocLeft]]
+table :: [ [Operator String () Identity STerm] ]
+table = [ [ unary "!" Bang],
+          [ binary "+" Add Ex.AssocLeft,
+            binary "-" Sub Ex.AssocLeft] ]
 
 expr :: P STerm
 expr = Ex.buildExpressionParser table tm
@@ -152,6 +156,10 @@ ifz = do i <- getPos
          e <- expr
          return (SIfZ i c t e)
 
+if_ :: P STerm
+if_ = do
+      return (abort "TODO")
+
 fix :: P STerm
 fix = do i <- getPos
          reserved "fix"
@@ -161,20 +169,35 @@ fix = do i <- getPos
          t <- expr
          return (SFix i (f,fty) (x,xty) t)
 
-letexp :: P STerm
-letexp = do
+letfun :: P STerm
+letfun = do
   i <- getPos
   reserved "let"
-  (v,ty) <- parens binding
+  v <- var -- f
+  b <- parens binding
+  bs <- many $ parens binding
+  reservedOp ":"
+  ty <- typeP -- tau
   reservedOp "="  
   def <- expr
   reserved "in"
   body <- expr
-  return (SLet i (v,ty) def body)
+  return (SFun i (v,ty) (b:bs) def body)
 
+letexp :: P STerm
+letexp = do
+  i <- getPos
+  reserved "let"
+  b <- binding <|> parens binding
+  reservedOp "="  
+  def <- expr
+  reserved "in"
+  body <- expr
+  return (SLet i b def body)
+  
 -- | Parser de términos
 tm :: P STerm
-tm = app <|> lam <|> ifz <|> printOp <|> fix <|> letexp
+tm = app <|> lam <|> ifz <|> printOp <|> fix <|> try letexp <|> letfun
 
 -- | Parser de declaraciones
 decl :: P (Decl STerm)

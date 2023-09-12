@@ -131,16 +131,14 @@ binding = do v <- var
              ty <- typeP
              return (v, ty)
 
-multibinding :: P [(Name, Ty)]
-multibinding = do b <- parens binding
-                  mb <- many $ parens binding
-                  return (b:mb)
+bindings :: P [(Name, Ty)]
+bindings = do many1 $ parens binding
 
 
 lam :: P STerm
 lam = do i <- getPos
          reserved "fun"
-         mb <- multibinding
+         mb <- bindings
          reservedOp "->"
          t <- expr
          return (SLam i mb t)
@@ -163,8 +161,7 @@ ifz = do i <- getPos
          return (SIfZ i c t e)
 
 if_ :: P STerm
-if_ = do
-      return (abort "TODO")
+if_ = do return (abort "TODO")
 
 fix :: P STerm
 fix = do i <- getPos
@@ -180,7 +177,7 @@ letfun = do
   i <- getPos
   reserved "let"
   v <- var -- f
-  bs <- multibinding
+  bs <- bindings
   reservedOp ":"
   ty <- typeP -- tau
   reservedOp "="  
@@ -202,7 +199,7 @@ letexp = do
   
 -- | Parser de términos
 tm :: P STerm
-tm = app <|> lam <|> ifz <|> printOp <|> fix <|> try letexp <|> letfun
+tm = app <|> lam <|> ifz <|> printOp <|> fix <|> (try letexp <|> letfun) 
 
 -- | Parser de declaraciones
 decl :: P (Decl STerm)
@@ -214,6 +211,15 @@ decl = do
      t <- expr
      return (Decl i v t)
 
+typeDecl :: P (Decl STy)
+typeDecl = do 
+  i <- getPos
+  reserved "type"
+  synonym <- var
+  reservedOp "="
+  realType <- typeP
+  return (Decl i synonym realType)
+  
 -- | Parser de programas (listas de declaraciones) 
 program :: P [Decl STerm]
 program = many decl

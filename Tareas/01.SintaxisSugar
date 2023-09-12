@@ -2,16 +2,22 @@ a. Modificar los términos superficiales STerm para reflejar la nueva sintaxis s
 
 b. Definir un tipo STy para tipos superficiales, y otro SDecl para declaraciones superficiales.
 
-c. Modificar el parser para que parsee declaraciones superficiales, tipos superficiales, y términos superficiales. Puede hacer test básicos, llamando a cabal exec ghci -- -isrc src/Parse.hs y ejecutar el parser desde el entorno interactivo.
+c. Modificar el parser para que parsee declaraciones superficiales, tipos superficiales, y términos superficiales. 
+    Puede hacer test básicos, llamando a cabal exec ghci -- -isrc src/Parse.hs y ejecutar el parser desde el entorno interactivo.
 
-d. Modificar el elaborador para que elimine el azúcar sintáctico al producir Term. Agregar funciones que elaboren tipos superficiales en Ty, y declaraciones superficiales en Decl. Es probable que las funciones de elaboración no puedan ser puras y deban usar la mónada FD4. Puede hacer test básicos, llamando a cabal exec ghci -- -isrc src/Parse.hs y ejecutar el elaborador desde el entorno interactivo.
+d. Modificar el elaborador para que elimine el azúcar sintáctico al producir Term. 
+    Agregar funciones que elaboren tipos superficiales en Ty, y declaraciones superficiales en Decl. 
+    Es probable que las funciones de elaboración no puedan ser puras y deban usar la mónada FD4. 
+    Puede hacer test básicos, llamando a cabal exec ghci -- -isrc src/Parse.hs y ejecutar el elaborador desde el entorno interactivo.
 
 e. Modificar el pretty-printer para que funcione con los nuevos STerm
 
 f. Modificar el Main.hs para trabajar con declaraciones y términos superficiales.
 
-g. Para agregar sinónimos de tipos, agregar al estado global un mapeo de nombres a tipos. Agregar funciones a la MonadFD4 para poder agregar y buscar en esta nueva componente del estado.
+g. Para agregar sinónimos de tipos, agregar al estado global un mapeo de nombres a tipos. 
+    Agregar funciones a la MonadFD4 para poder agregar y buscar en esta nueva componente del estado.
 
-h. Si decide recordar los nombres de los sinónimos elegidos por el programador en los tipos Ty (para producir mejores mensajes de error / pretty-printing) es necesario modificar la comparación de tipos en el typechecker. 
+h. Si decide recordar los nombres de los sinónimos elegidos por el programador en los tipos Ty 
+    (para producir mejores mensajes de error / pretty-printing) es necesario modificar la comparación de tipos en el typechecker. 
 
 i. (Opcional) agregar un resugaring al pretty-printer.

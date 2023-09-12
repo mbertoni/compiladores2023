@@ -45,6 +45,9 @@ data Ty =
     | FunTy Ty Ty
     deriving (Show,Eq)
 
+type STy = Ty
+
+
 typeMerge:: [Ty] -> Ty
 typeMerge []  = abort "No types to merge"
 typeMerge [t] = t

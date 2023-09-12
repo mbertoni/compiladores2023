@@ -12,12 +12,13 @@ module Global where
 import Lang
 
 data GlEnv = GlEnv {
-  inter :: Bool,        --  ^ True, si estamos en modo interactivo.
-                        -- Este parámetro puede cambiar durante la ejecución:
-                        -- Es falso mientras se cargan archivos, pero luego puede ser verdadero.
-  lfile :: String,      -- ^ Último archivo cargado.
-  cantDecl :: Int,      -- ^ Cantidad de declaraciones desde la última carga
-  glb :: [Decl TTerm]  -- ^ Entorno con declaraciones globales
+  inter :: Bool,          --  ^ True, si estamos en modo interactivo.
+                          -- Este parámetro puede cambiar durante la ejecución:
+                          -- Es falso mientras se cargan archivos, pero luego puede ser verdadero.
+  lfile :: String,        -- ^ Último archivo cargado.
+  cantDecl :: Int,        -- ^ Cantidad de declaraciones desde la última carga
+  synonyms :: [Decl STy], -- ^ Declaraciones de tipos, hay que ver cmo se completa
+  glb :: [Decl TTerm]     -- ^ Entorno con declaraciones globales
 }
 
 -- ^ Entorno de tipado de declaraciones globales
@@ -39,8 +40,8 @@ data Mode =
   -- | Assembler
   -- | Build
 data Conf = Conf {
-    opt :: Bool,          --  ^ True, si estan habilitadas las optimizaciones.
-    modo :: Mode
+    opt   :: Bool,          --  ^ True, si estan habilitadas las optimizaciones.
+    modo  :: Mode
 }
 
 -- | Valor del estado inicial

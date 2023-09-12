@@ -69,7 +69,7 @@ main = execParser opts >>= go
     opts = info (parseArgs <**> helper)
       ( fullDesc
      <> progDesc "Compilador de FD4"
-     <> header "Compilador de FD4 de la materia Compiladores 2022" )
+     <> header "Compilador de FD4 de la materia Compiladores 2023" )
 
     go :: (Mode,Bool,[FilePath]) -> IO ()
     go (Interactive,opt,files) =

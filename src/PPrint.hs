@@ -19,7 +19,7 @@ module PPrint (
 
 import Lang
 import Subst ( open, open2 )
-import Common ( Pos )
+import Common ( Pos, abort )
 
 import Data.Text ( unpack )
 import Prettyprinter.Render.Terminal
@@ -54,7 +54,9 @@ openAll gp ns (V p v) = case v of
 openAll gp ns (Const p c) = SConst (gp p) c
 openAll gp ns (Lam p x ty t) = 
   let x' = freshen ns x 
-  in SLam (gp p) (x',ty) (openAll gp (x':ns) (open x' t))
+  in SLam (gp p) [(x',ty)] (openAll gp (x':ns) (open x' t))
+  -- Si quisiésemos devolver el SLam con multibinding, 
+  -- deberíamos llevar más info en el momento de open
 openAll gp ns (App p t u) = SApp (gp p) (openAll gp ns t) (openAll gp ns u)
 openAll gp ns (Fix p f fty x xty t) = 
   let 
@@ -127,13 +129,24 @@ t2doc :: Bool     -- Debe ser un átomo?
 -- Uncomment to use the Show instance for STerm
 {- t2doc at x = text (show x) -}
 t2doc at (SV _ x) = name2doc x
+t2doc at (SUnaryOp _ _ x) = abort "unimplemented"
+t2doc at (SFun _ _ _ _ x) = abort "unimplemented"
+t2doc at (SIf _ x) = abort "unimplemented"
 t2doc at (SConst _ c) = c2doc c
-t2doc at (SLam _ (v,ty) t) =
+t2doc at (SLam _ [] t) = abort "unimplemented"
+t2doc at (SLam _ [(v,ty)] t) =
   parenIf at $
   sep [sep [ keywordColor (pretty "fun")
            , binding2doc (v,ty)
            , opColor(pretty "->")]
       , nest 2 (t2doc False t)]
+t2doc at (SLam i ((v,ty):bs) t) = 
+  parenIf at $
+  sep [sep [ keywordColor (pretty "fun")
+           , binding2doc (v,ty)
+           , opColor(pretty "->")]
+      , nest 2 (t2doc False (SLam i bs t ))]
+
 
 t2doc at t@(SApp _ _ _) =
   let (h, ts) = collectApp t in

@@ -131,13 +131,19 @@ binding = do v <- var
              ty <- typeP
              return (v, ty)
 
+multibinding :: P [(Name, Ty)]
+multibinding = do b <- parens binding
+                  mb <- many $ parens binding
+                  return (b:mb)
+
+
 lam :: P STerm
 lam = do i <- getPos
          reserved "fun"
-         (v,ty) <- parens binding
+         mb <- multibinding
          reservedOp "->"
          t <- expr
-         return (SLam i (v,ty) t)
+         return (SLam i mb t)
 
 -- Nota el parser app también parsea un solo atom.
 app :: P STerm
@@ -174,15 +180,14 @@ letfun = do
   i <- getPos
   reserved "let"
   v <- var -- f
-  b <- parens binding
-  bs <- many $ parens binding
+  bs <- multibinding
   reservedOp ":"
   ty <- typeP -- tau
   reservedOp "="  
   def <- expr
   reserved "in"
   body <- expr
-  return (SFun i (v,ty) (b:bs) def body)
+  return (SFun i (v,ty) bs def body)
 
 letexp :: P STerm
 letexp = do

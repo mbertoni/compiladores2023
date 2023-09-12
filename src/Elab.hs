@@ -12,6 +12,7 @@ fully named (@STerm) a locally closed (@Term@)
 
 module Elab ( elab, elabDecl) where
 
+import Common (abort)
 import Lang
 import Subst
 
@@ -25,14 +26,22 @@ elab' env (SV p v) =
   -- Tenemos que ver si la variable es Global o es un nombre local
   -- En env llevamos la lista de nombres locales.
   if v `elem` env 
-    then  V p (Free v)
+    then V p (Free v)
     else V p (Global v)
 
 elab' _ (SConst p c) = Const p c
-elab' env (SLam p (v,ty) t) = Lam p v ty (close v (elab' (v:env) t))
+elab' env (SLam p [] t) = abort "Empty lambda binding list"
+elab' env (SLam p [(v,ty)] t) = Lam p v ty (close v (elab' (v:env) t))
+elab' env (SLam p ((v,ty):bs) t) = Lam p v ty (close v (elab' (v:env) (SLam p bs t) ))
 elab' env (SFix p (f,fty) (x,xty) t) = Fix p f fty x xty (close2 f x (elab' (x:f:env) t))
 elab' env (SIfZ p c t e)         = IfZ p (elab' env c) (elab' env t) (elab' env e)
+-- des hardcodear el Bang
 elab' env (SUnaryOp i Bang t) = IfZ i (elab' env t) (Const i (CNat 1)) (Const i (CNat 0))
+elab' env (SFun i (fn,ty) optionalBindings t t' ) = 
+  elab' env (SLet i (fn,allTypes) (SLam i optionalBindings t) t')
+    where allTypes = typeMerge (map snd optionalBindings ++ [ty])  
+  
+elab' env (SIf i _) = abort "unimplemented" 
 -- Operadores binarios
 elab' env (SBinaryOp i o t u) = BinaryOp i o (elab' env t) (elab' env u)
 -- Operador Print

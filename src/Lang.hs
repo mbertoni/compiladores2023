@@ -20,14 +20,14 @@ Definiciones de distintos tipos de datos:
 
 module Lang where
 
-import           Common                         ( Pos )
+import           Common                         ( Pos , abort)
 import           Data.List.Extra                ( nubSort )
 
 -- | AST the términos superficiales
 data STm info ty var =
     SV info var
   | SConst info Const
-  | SLam info (var, ty) (STm info ty var)
+  | SLam info [(var, ty)] (STm info ty var)
   | SApp info (STm info ty var) (STm info ty var)
   | SPrint info  String (STm info ty var)
   | SBinaryOp info BinaryOp (STm info ty var) (STm info ty var)
@@ -44,6 +44,11 @@ data Ty =
       NatTy
     | FunTy Ty Ty
     deriving (Show,Eq)
+
+typeMerge:: [Ty] -> Ty
+typeMerge []  = abort "No types to merge"
+typeMerge [t] = t
+typeMerge (t:ts) = FunTy t (typeMerge ts)
 
 type Name = String
 

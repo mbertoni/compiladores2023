@@ -62,7 +62,7 @@ openAll gp ns (Fix p f fty x xty t) =
   let 
     x' = freshen ns x
     f' = freshen (x':ns) f
-  in SFix (gp p) (f',fty) (x',xty) (openAll gp (x:f:ns) (open2 f' x' t))
+  in SFix (gp p) (f',fty) [(x',xty)] (openAll gp (x:f:ns) (open2 f' x' t))
 openAll gp ns (IfZ p c t e) = SIfZ (gp p) (openAll gp ns c) (openAll gp ns t) (openAll gp ns e)
 openAll gp ns (Print p str t) = SPrint (gp p) str (openAll gp ns t)
 openAll gp ns (BinaryOp p op t u) = SBinaryOp (gp p) op (openAll gp ns t) (openAll gp ns u)
@@ -130,7 +130,8 @@ t2doc :: Bool     -- Debe ser un átomo?
 {- t2doc at x = text (show x) -}
 t2doc at (SV _ x) = name2doc x
 t2doc at (SUnaryOp _ _ x) = abort "unimplemented"
-t2doc at (SFun _ _ _ _ x) = abort "unimplemented"
+t2doc at (SLetFun _ _ _ _ x) = abort "unimplemented"
+t2doc at (SLetRec _ _ _ _ x) = abort "unimplemented"
 t2doc at (SIf _ x) = abort "unimplemented"
 t2doc at (SConst _ c) = c2doc c
 t2doc at (SLam _ [] t) = abort "unimplemented"
@@ -153,7 +154,7 @@ t2doc at t@(SApp _ _ _) =
   parenIf at $
   t2doc True h <+> sep (map (t2doc True) ts)
 
-t2doc at (SFix _ (f,fty) (x,xty) m) =
+t2doc at (SFix _ (f,fty) [(x,xty)] m) =
   parenIf at $
   sep [ sep [keywordColor (pretty "fix")
                   , binding2doc (f, fty)

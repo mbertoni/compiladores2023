@@ -33,14 +33,17 @@ elab' _ (SConst p c) = Const p c
 elab' env (SLam p [] t) = abort "Empty lambda binding list"
 elab' env (SLam p [(v,ty)] t) = Lam p v ty (close v (elab' (v:env) t))
 elab' env (SLam p ((v,ty):bs) t) = Lam p v ty (close v (elab' (v:env) (SLam p bs t) ))
-elab' env (SFix p (f,fty) (x,xty) t) = Fix p f fty x xty (close2 f x (elab' (x:f:env) t))
+elab' env (SFix i (f,fty) [] t) = abort "Empty fix binding list"
+elab' env (SFix i (f,fty) [(x,xty)] t) = Fix i f fty x xty (close2 f x (elab' (x:f:env) t))
+elab' env (SFix i (f,fty) ((x,xty):bs) t) = 
+  Fix i f fty x xty (close2 f x (elab' (x:f:env) (SLam i bs t)))
 elab' env (SIfZ p c t e)         = IfZ p (elab' env c) (elab' env t) (elab' env e)
 -- des hardcodear el Bang
-elab' env (SUnaryOp i Bang t) = IfZ i (elab' env t) (Const i (CNat 1)) (Const i (CNat 0))
-elab' env (SFun i (fn,ty) optionalBindings t t' ) = 
-  elab' env (SLet i (fn,allTypes) (SLam i optionalBindings t) t')
-    where allTypes = typeMerge (map snd optionalBindings ++ [ty])  
+elab' env (SLetFun i (fn,ty) bs t t' ) = 
+  elab' env (SLet i (fn,mergedTypes) (SLam i bs t) t')
+    where mergedTypes = typeMerge (map snd bs ++ [ty])  
   
+elab' env (SUnaryOp i Bang t) = IfZ i (elab' env t) (Const i (CNat 1)) (Const i (CNat 0))
 elab' env (SIf i _) = abort "unimplemented" 
 -- Operadores binarios
 elab' env (SBinaryOp i o t u) = BinaryOp i o (elab' env t) (elab' env u)
@@ -50,6 +53,10 @@ elab' env (SPrint i str t) = Print i str (elab' env t)
 elab' env (SApp p h a) = App p (elab' env h) (elab' env a)
 elab' env (SLet p (v,vty) def body) =  
   Let p v vty (elab' env def) (close v (elab' (v:env) body))
+elab' env (SLetRec i (f,ty) [] t t') = abort "Empty let rec list"
+elab' env (SLetRec i (f,ty) (b:bs) t t') = 
+  elab' env (SLet i (f,mergedTypes) (SFix i (f,mergedTypes) (b:bs) t) t')
+    where mergedTypes = typeMerge (map snd (b:bs) ++ [ty])  
 
 elabDecl :: Decl STerm -> Decl Term
 elabDecl = fmap elab

@@ -167,16 +167,20 @@ fix :: P STerm
 fix = do i <- getPos
          reserved "fix"
          (f, fty) <- parens binding
-         (x, xty) <- parens binding
+         bs <- bindings
          reservedOp "->"
          t <- expr
-         return (SFix i (f,fty) (x,xty) t)
+         return (SFix i (f,fty) bs  t)
+
+-- fixSugar :: P STerm
+-- fixSugar = do i <- getPos
+
 
 letfun :: P STerm
 letfun = do
   i <- getPos
   reserved "let"
-  v <- var -- f
+  f <- var 
   bs <- bindings
   reservedOp ":"
   ty <- typeP -- tau
@@ -184,7 +188,7 @@ letfun = do
   def <- expr
   reserved "in"
   body <- expr
-  return (SFun i (v,ty) bs def body)
+  return (SLetFun i (f,ty) bs def body)
 
 letexp :: P STerm
 letexp = do
@@ -196,10 +200,25 @@ letexp = do
   reserved "in"
   body <- expr
   return (SLet i b def body)
-  
+
+letrec :: P STerm
+letrec = do
+  i <- getPos
+  reserved "let"
+  reserved "rec"
+  f <- var 
+  (b:bs) <- bindings
+  reservedOp ":"
+  ty <- typeP 
+  reservedOp "="  
+  def <- expr
+  reserved "in"
+  body <- expr
+  return (SLetRec i (f,ty) (b:bs) def body)
+
 -- | Parser de términos
 tm :: P STerm
-tm = app <|> lam <|> ifz <|> printOp <|> fix <|> (try letexp <|> letfun) 
+tm = app <|> lam <|> ifz <|> printOp <|> fix <|> try letexp <|> letfun
 
 -- | Parser de declaraciones
 decl :: P (Decl STerm)

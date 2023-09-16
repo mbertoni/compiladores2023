@@ -87,8 +87,11 @@ setLastFile filename = modify (\s -> s {lfile = filename , cantDecl = 0})
 getLastFile :: MonadFD4 m => m FilePath
 getLastFile = gets lfile
 
-addDecl :: MonadFD4 m => Decl TTerm -> m ()
-addDecl d = modify (\s -> s { glb = d : glb s, cantDecl = cantDecl s + 1 })
+addTermDecl :: MonadFD4 m => Decl TTerm -> m ()
+addTermDecl d = modify (\s -> s { glb = d : glb s, cantTermDecl = cantTermDecl s + 1 })
+
+addTypeDecl :: MonadFD4 m => Decl STy -> m ()
+addTypeDecl d = modify (\s -> s { context = d : context s, cantTypeDecl = cantTypeDecl s + 1 })
 
 eraseLastFileDecls :: MonadFD4 m => m ()
 eraseLastFileDecls = do

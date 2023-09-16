@@ -23,6 +23,19 @@ module Lang where
 import           Common                         ( Pos , abort)
 import           Data.List.Extra                ( nubSort )
 
+data SDeclRec a = SDeclRec
+  { sDeclPos  :: Pos
+  , sDeclName :: Name
+  , sDeclBody :: a
+  }
+  deriving (Show, Functor)
+
+data SDecl =
+  SDeclType (SDeclRec STy)
+  | SDeclTerm (SDeclRec STerm)
+
+
+
 -- | AST the términos superficiales
 data STm info ty var =
     SV info var
@@ -44,9 +57,14 @@ data STm info ty var =
 data Ty =
       NatTy
     | FunTy Ty Ty
-    deriving (Show,Eq)
+    deriving (Show, Eq)
 
-type STy = Ty
+data STy =
+      SNatTy
+    | SFunTy STy STy
+    | SVar Name
+    deriving (Show, Eq)
+
 
 
 typeMerge:: [Ty] -> Ty
@@ -56,7 +74,7 @@ typeMerge (t:ts) = FunTy t (typeMerge ts)
 
 type Name = String
 
-type STerm = STm Pos Ty Name -- ^ 'STm' tiene 'Name's como variables ligadas y libres y globales, guarda posición  
+type STerm = STm Pos STy Name -- ^ 'STm' tiene 'Name's como variables ligadas y libres y globales, guarda posición  
 
 newtype Const = CNat Int
   deriving Show

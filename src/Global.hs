@@ -16,8 +16,9 @@ data GlEnv = GlEnv {
                           -- Este parámetro puede cambiar durante la ejecución:
                           -- Es falso mientras se cargan archivos, pero luego puede ser verdadero.
   lfile :: String,        -- ^ Último archivo cargado.
-  cantDecl :: Int,        -- ^ Cantidad de declaraciones desde la última carga
-  context  :: [Decl STy], -- ^ Declaraciones de tipos, hay que ver cmo se completa
+  cantTypeDecl :: Int,        -- ^ Cantidad de declaraciones tipo desde la última carga
+  cantTermDecl :: Int,        -- ^ Cantidad de declaraciones término desde la última carga
+  context  :: [Decl Ty], -- ^ Declaraciones de tipos, hay que ver cómo se completa
   glb :: [Decl TTerm]     -- ^ Entorno con declaraciones globales
 }
 

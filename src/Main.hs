@@ -105,7 +105,7 @@ repl args = do
                        b <- lift $ catchErrors $ handleCommand c
                        maybe loop (`when` loop) b
 
-loadFile ::  MonadFD4 m => FilePath -> m [Decl STerm]
+loadFile ::  MonadFD4 m => FilePath -> m [SDecl]
 loadFile f = do
     let filename = reverse (dropWhile isSpace (reverse f))
     x <- liftIO $ catch (readFile filename)
@@ -134,7 +134,7 @@ evalDecl (Decl p x e) = do
     e' <- eval e
     return (Decl p x e')
 
-handleDecl ::  MonadFD4 m => Decl STerm -> m ()
+handleDecl ::  MonadFD4 m => SDecl -> m ()
 handleDecl d = do
         m <- getMode
         case m of
@@ -158,8 +158,13 @@ handleDecl d = do
               addDecl ed
 
       where
+        elabDecl :: MonadFD4 m => SDecl -> m (Maybe Decl TTerm)
+        elabDecl SDeclTy _ = sarasa >> Nothing
+        elabDecl SDeclTerm r = Just $ elab
+
         typecheckDecl :: MonadFD4 m => Decl STerm -> m (Decl TTerm)
         typecheckDecl (Decl p x t) = tcDecl (Decl p x (elab t))
+
 
 
 data Command = Compile CompileForm

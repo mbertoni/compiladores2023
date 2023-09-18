@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 {-|
 Module      : Main
@@ -30,9 +31,9 @@ import Global
 import Errors
 import Lang
 import Parse ( P, tm, program, declOrTm, runP )
-import Elab ( elab )
+import Elab ( elabDeclaration )
 import Eval ( eval )
-import PPrint ( pp , ppSTy, ppDecl )
+import PPrint ( pp, ppDecl )
 import MonadFD4
 import TypeChecker ( tc, tcDecl )
 import Common (abort)
@@ -92,7 +93,7 @@ repl args = do
        lift $ setInter True
        lift $ catchErrors $ mapM_ compileFile args
        s <- lift get
-       when (inter s) $ liftIO $ putStrLn
+       when (inInteractiveMode s) $ liftIO $ putStrLn
          (  "Entorno interactivo para FD4.\n"
          ++ "Escriba :? para recibir ayuda.")
        loop
@@ -161,9 +162,9 @@ handleDecl d = do
       where
         elabDecl :: MonadFD4 m => SDecl -> m (Maybe (Decl TTerm))
         elabDecl (SDeclType _) = return Nothing -- TODO
-        elabDecl (SDeclTerm r) = return $ Just elab r
+        elabDecl (SDeclTerm r) = return $ Just $ elab r.declBody
 
-        typecheckDecl :: MonadFD4 m => Decl STerm -> m (Decl TTerm)
+        typecheckDecl :: MonadFD4 m => Decl Term -> m (Decl TTerm)
         typecheckDecl (Decl p x t) = tcDecl (Decl p x (elab t))
 
 

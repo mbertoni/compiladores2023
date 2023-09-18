@@ -12,6 +12,7 @@ Stability   : experimental
 
 module PPrint (
     pp,
+    ppTy,
     ppSTy,
     ppName,
     ppDecl
@@ -108,6 +109,9 @@ sTy2Doc (SVar n) = typeColor (pretty n)
 -- | Pretty printer para tipos (String)
 ppSTy :: STy -> String
 ppSTy = render . sTy2Doc
+
+ppTy :: Ty -> String
+ppTy = ppSTy . ty2STy
 
 c2doc :: Const -> Doc AnsiStyle
 c2doc (CNat n) = constColor (pretty (show n))

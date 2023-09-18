@@ -221,34 +221,34 @@ tm :: P STerm
 tm = app <|> lam <|> ifz <|> printOp <|> fix <|> try letexp <|> letfun
 
 -- | Parser de declaraciones
-termDecl :: P SDecl
+termDecl :: P SDeclaration
 termDecl = do 
      i <- getPos
      reserved "let"
      v <- var
      reservedOp "="
      t <- expr
-     return $ SDeclTerm (SDeclRec i v t)
+     return $ SDecl i v $ STermDecl t
 
-typeDecl :: P SDecl
+typeDecl :: P SDeclaration
 typeDecl = do 
   i <- getPos
   reserved "type"
   synonym <- var
   reservedOp "="
   realType <- typeP
-  return $ SDeclType (SDeclRec i synonym realType)
+  return $ SDecl i synonym $ STypeDecl realType
   
-decl :: P SDecl
+decl :: P SDeclaration
 decl = termDecl <|> typeDecl
 
 -- | Parser de programas (listas de declaraciones) 
-program :: P [SDecl]
+program :: P [SDeclaration]
 program = many decl
 
 -- | Parsea una declaración a un término
 -- Útil para las sesiones interactivas
-declOrTm :: P (Either SDecl STerm)
+declOrTm :: P (Either SDeclaration STerm)
 declOrTm =  try (Left <$> decl) <|> (Right <$> expr)
 
 -- Corre un parser, chequeando que se pueda consumir toda la entrada

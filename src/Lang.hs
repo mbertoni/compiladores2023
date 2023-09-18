@@ -23,18 +23,20 @@ module Lang where
 import          Common                      ( Pos , abort) 
 import          Data.List.Extra                ( nubSort )
 
-data SDeclRec a = SDeclRec
+data SDecl a = SDecl
   { sDeclPos  :: Pos
   , sDeclName :: Name
   , sDeclBody :: a
   }
   deriving (Show, Functor)
 
-data SDecl =
-  SDeclType (SDeclRec STy)
-  | SDeclTerm (SDeclRec STerm)
+data SDeclKind =
+    STypeDecl STy
+  | STermDecl STerm
+  deriving (Show)
 
-
+-- | Estas son las declaraciones válidas del FD4
+type SDeclaration = SDecl SDeclKind
 
 -- | AST the términos superficiales
 data STm info ty var =
@@ -64,6 +66,9 @@ data STy =
     | SFunTy STy STy
     | SVar Name
     deriving (Show, Eq)
+
+sTyFold :: [STy] -> STy
+sTyFold = foldr1 SFunTy 
 
 typeMerge:: [Ty] -> Ty
 typeMerge []  = abort "No types to merge"

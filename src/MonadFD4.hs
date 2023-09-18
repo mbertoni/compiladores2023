@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use <$>" #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 {-|
 Module      : MonadFD4
@@ -31,7 +32,7 @@ module MonadFD4 (
   eraseLastFileDecls,
   failPosFD4,
   failFD4,
-  addDecl,
+  addTermDecl,
   catchErrors,
   MonadFD4,
   module Control.Monad.Except,
@@ -67,43 +68,43 @@ y otras operaciones derivadas de ellas, como por ejemplo
 class (MonadIO m, MonadState GlEnv m, MonadError Error m, MonadReader Conf m) => MonadFD4 m
 
 getOpt :: MonadFD4 m => m Bool
-getOpt = asks opt
+getOpt = asks optimize
 
 getMode :: MonadFD4 m => m Mode
 getMode = asks modo
 
 setInter :: MonadFD4 m => Bool -> m ()
-setInter b = modify (\s-> s {inter = b})
+setInter b = modify (\s -> s {inInteractiveMode = b})
 
 getInter :: MonadFD4 m => m Bool
-getInter = gets inter
+getInter = gets inInteractiveMode
 
 printFD4 :: MonadFD4 m => String -> m ()
 printFD4 = liftIO . putStrLn
 
 setLastFile :: MonadFD4 m => FilePath -> m ()
-setLastFile filename = modify (\s -> s {lfile = filename , cantDecl = 0})
+setLastFile filename = modify (\s -> s {lastFile = filename , termDeclNumber = 0, typeDeclNumber = 0})
 
 getLastFile :: MonadFD4 m => m FilePath
-getLastFile = gets lfile
+getLastFile = gets lastFile
 
 addTermDecl :: MonadFD4 m => Decl TTerm -> m ()
-addTermDecl d = modify (\s -> s { glb = d : glb s, cantTermDecl = cantTermDecl s + 1 })
+addTermDecl d = modify (\s -> s { termEnvironment = d : termEnvironment s, termDeclNumber = termDeclNumber s + 1 })
 
-addTypeDecl :: MonadFD4 m => Decl STy -> m ()
-addTypeDecl d = modify (\s -> s { context = d : context s, cantTypeDecl = cantTypeDecl s + 1 })
+addTypeDecl :: MonadFD4 m => Decl Ty -> m ()
+addTypeDecl d = modify (\s -> s { typeContext = d : typeContext s, typeDeclNumber = typeDeclNumber s + 1 })
 
 eraseLastFileDecls :: MonadFD4 m => m ()
 eraseLastFileDecls = do
-      s <- get
-      let n = cantDecl s
-          (_,rem) = splitAt n (glb s)
-      modify (\s -> s {glb = rem, cantDecl = 0})
+    s <- get
+    let (_, terms) = splitAt s.termDeclNumber s.termEnvironment
+        (_, types) = splitAt s.typeDeclNumber s.typeContext
+    modify (\s -> s { termEnvironment = terms, termDeclNumber = 0, typeContext = types, typeDeclNumber = 0})
 
 lookupDecl :: MonadFD4 m => Name -> m (Maybe TTerm)
 lookupDecl nm = do
      s <- get
-     case filter (hasName nm) (glb s) of
+     case filter (hasName nm) (termEnvironment s) of
        (Decl { declBody=e }):_ -> return (Just e)
        [] -> return Nothing
    where hasName :: Name -> Decl a -> Bool

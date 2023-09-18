@@ -20,8 +20,8 @@ Definiciones de distintos tipos de datos:
 
 module Lang where
 
-import           Common                         ( Pos , abort)
-import           Data.List.Extra                ( nubSort )
+import          Common                      ( Pos , abort) 
+import          Data.List.Extra                ( nubSort )
 
 data SDeclRec a = SDeclRec
   { sDeclPos  :: Pos
@@ -65,8 +65,6 @@ data STy =
     | SVar Name
     deriving (Show, Eq)
 
-
-
 typeMerge:: [Ty] -> Ty
 typeMerge []  = abort "No types to merge"
 typeMerge [t] = t
@@ -81,6 +79,7 @@ newtype Const = CNat Int
 
 data UnaryOp = Bang
   deriving Show
+
 data BinaryOp = Add | Sub
   deriving Show
 
@@ -110,7 +109,7 @@ data Tm info var =
 
 
 type Term = Tm Pos Var       -- ^ 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición
-type TTerm = Tm (Pos,Ty) Var -- ^ 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición y tipo
+type TTerm = Tm (Pos, Ty) Var -- ^ 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición y tipo
 
 data Var =
     Bound !Int

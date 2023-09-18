@@ -12,7 +12,7 @@ Stability   : experimental
 
 module PPrint (
     pp,
-    ppTy,
+    ppSTy,
     ppName,
     ppDecl
     ) where
@@ -35,7 +35,11 @@ import Prettyprinter
       Doc,
       Pretty(pretty) )
 import MonadFD4 ( gets, MonadFD4 )
-import Global ( GlEnv(glb) )
+import Global ( GlEnv(termEnvironment) )
+
+ty2STy :: Ty -> STy
+ty2STy NatTy = SNatTy
+ty2STy (FunTy t t') = SFunTy (ty2STy t) (ty2STy t')
 
 freshen :: [Name] -> Name -> Name
 freshen ns n = let cands = n : map (\i -> n ++ show i) [0..] 
@@ -54,7 +58,7 @@ openAll gp ns (V p v) = case v of
 openAll gp ns (Const p c) = SConst (gp p) c
 openAll gp ns (Lam p x ty t) = 
   let x' = freshen ns x 
-  in SLam (gp p) [(x',ty)] (openAll gp (x':ns) (open x' t))
+  in SLam (gp p) [(x', ty2STy ty)] (openAll gp (x':ns) (open x' t))
   -- Si quisiésemos devolver el SLam con multibinding, 
   -- deberíamos llevar más info en el momento de open
 openAll gp ns (App p t u) = SApp (gp p) (openAll gp ns t) (openAll gp ns u)
@@ -62,13 +66,13 @@ openAll gp ns (Fix p f fty x xty t) =
   let 
     x' = freshen ns x
     f' = freshen (x':ns) f
-  in SFix (gp p) (f',fty) [(x',xty)] (openAll gp (x:f:ns) (open2 f' x' t))
+  in SFix (gp p) (f', ty2STy fty) [(x', ty2STy xty)] (openAll gp (x:f:ns) (open2 f' x' t))
 openAll gp ns (IfZ p c t e) = SIfZ (gp p) (openAll gp ns c) (openAll gp ns t) (openAll gp ns e)
 openAll gp ns (Print p str t) = SPrint (gp p) str (openAll gp ns t)
 openAll gp ns (BinaryOp p op t u) = SBinaryOp (gp p) op (openAll gp ns t) (openAll gp ns u)
 openAll gp ns (Let p v ty m n) = 
     let v'= freshen ns v 
-    in  SLet (gp p) (v',ty) (openAll gp ns m) (openAll gp (v':ns) (open v' n))
+    in  SLet (gp p) (v', ty2STy ty) (openAll gp ns m) (openAll gp (v':ns) (open v' n))
 
 --Colores
 constColor :: Doc AnsiStyle -> Doc AnsiStyle
@@ -95,14 +99,15 @@ ppName :: Name -> String
 ppName = id
 
 -- | Pretty printer para tipos (Doc)
-ty2doc :: Ty -> Doc AnsiStyle
-ty2doc NatTy     = typeColor (pretty "Nat")
-ty2doc (FunTy x@(FunTy _ _) y) = sep [parens (ty2doc x), typeOpColor (pretty "->"),ty2doc y]
-ty2doc (FunTy x y) = sep [ty2doc x, typeOpColor (pretty "->"),ty2doc y] 
+sTy2Doc :: STy -> Doc AnsiStyle
+sTy2Doc SNatTy = typeColor (pretty "Nat")
+sTy2Doc (SFunTy x@(SFunTy _ _) y) = sep [parens (sTy2Doc x), typeOpColor (pretty "->"), sTy2Doc y]
+sTy2Doc (SFunTy x y) = sep [sTy2Doc x, typeOpColor (pretty "->"),sTy2Doc y]
+sTy2Doc (SVar n) = typeColor (pretty n)
 
 -- | Pretty printer para tipos (String)
-ppTy :: Ty -> String
-ppTy = render . ty2doc
+ppSTy :: STy -> String
+ppSTy = render . sTy2Doc
 
 c2doc :: Const -> Doc AnsiStyle
 c2doc (CNat n) = constColor (pretty (show n))
@@ -120,83 +125,83 @@ parenIf :: Bool -> Doc a -> Doc a
 parenIf True = parens
 parenIf _ = id
 
--- t2doc at t :: Doc
+-- sTerm2Doc at t :: Doc
 -- at: debe ser un átomo
 -- | Pretty printing de términos (Doc)
-t2doc :: Bool     -- Debe ser un átomo? 
+sTerm2Doc :: Bool     -- Debe ser un átomo? 
       -> STerm    -- término a mostrar
       -> Doc AnsiStyle
 -- Uncomment to use the Show instance for STerm
-{- t2doc at x = text (show x) -}
-t2doc at (SV _ x) = name2doc x
-t2doc at (SUnaryOp _ _ x) = abort "unimplemented"
-t2doc at (SLetFun _ _ _ _ x) = abort "unimplemented"
-t2doc at (SLetRec _ _ _ _ x) = abort "unimplemented"
-t2doc at (SIf _ x) = abort "unimplemented"
-t2doc at (SConst _ c) = c2doc c
-t2doc at (SLam _ [] t) = abort "unimplemented"
-t2doc at (SLam _ [(v,ty)] t) =
+{- sTerm2Doc at x = text (show x) -}
+sTerm2Doc at (SV _ x) = name2doc x
+sTerm2Doc at (SUnaryOp _ _ x) = abort "unimplemented"
+sTerm2Doc at (SLetFun _ _ _ _ x) = abort "unimplemented"
+sTerm2Doc at (SLetRec _ _ _ _ x) = abort "unimplemented"
+sTerm2Doc at (SIf _ x) = abort "unimplemented"
+sTerm2Doc at (SConst _ c) = c2doc c
+sTerm2Doc at (SLam _ [] t) = abort "unimplemented"
+sTerm2Doc at (SLam _ [(v,ty)] t) =
   parenIf at $
   sep [sep [ keywordColor (pretty "fun")
-           , binding2doc (v,ty)
+           , sBinding2doc (v, ty)
            , opColor(pretty "->")]
-      , nest 2 (t2doc False t)]
-t2doc at (SLam i ((v,ty):bs) t) = 
+      , nest 2 (sTerm2Doc False t)]
+sTerm2Doc at (SLam i ((v,ty):bs) t) = 
   parenIf at $
   sep [sep [ keywordColor (pretty "fun")
-           , binding2doc (v,ty)
+           , sBinding2doc (v, ty)
            , opColor(pretty "->")]
-      , nest 2 (t2doc False (SLam i bs t ))]
+      , nest 2 (sTerm2Doc False (SLam i bs t ))]
 
 
-t2doc at t@(SApp _ _ _) =
+sTerm2Doc at t@(SApp _ _ _) =
   let (h, ts) = collectApp t in
   parenIf at $
-  t2doc True h <+> sep (map (t2doc True) ts)
+  sTerm2Doc True h <+> sep (map (sTerm2Doc True) ts)
 
-t2doc at (SFix _ (f,fty) [(x,xty)] m) =
+sTerm2Doc at (SFix _ (f,fty) [(x,xty)] m) =
   parenIf at $
   sep [ sep [keywordColor (pretty "fix")
-                  , binding2doc (f, fty)
-                  , binding2doc (x, xty)
+                  , sBinding2doc (f, fty)
+                  , sBinding2doc (x, xty)
                   , opColor (pretty "->") ]
-      , nest 2 (t2doc False m)
+      , nest 2 (sTerm2Doc False m)
       ]
-t2doc at (SIfZ _ c t e) =
+sTerm2Doc at (SIfZ _ c t e) =
   parenIf at $
-  sep [keywordColor (pretty "ifz"), nest 2 (t2doc False c)
-     , keywordColor (pretty "then"), nest 2 (t2doc False t)
-     , keywordColor (pretty "else"), nest 2 (t2doc False e) ]
+  sep [keywordColor (pretty "ifz"), nest 2 (sTerm2Doc False c)
+     , keywordColor (pretty "then"), nest 2 (sTerm2Doc False t)
+     , keywordColor (pretty "else"), nest 2 (sTerm2Doc False e) ]
 
-t2doc at (SPrint _ str t) =
+sTerm2Doc at (SPrint _ str t) =
   parenIf at $
-  sep [keywordColor (pretty "print"), pretty (show str), t2doc True t]
+  sep [keywordColor (pretty "print"), pretty (show str), sTerm2Doc True t]
 
-t2doc at (SLet _ (v,ty) t t') =
+sTerm2Doc at (SLet _ (v,ty) t t') =
   parenIf at $
   sep [
     sep [keywordColor (pretty "let")
-       , binding2doc (v,ty)
+       , sBinding2doc (v,ty)
        , opColor (pretty "=") ]
-  , nest 2 (t2doc False t)
+  , nest 2 (sTerm2Doc False t)
   , keywordColor (pretty "in")
-  , nest 2 (t2doc False t') ]
+  , nest 2 (sTerm2Doc False t') ]
 
-t2doc at (SBinaryOp _ o a b) =
+sTerm2Doc at (SBinaryOp _ o a b) =
   parenIf at $
-  t2doc True a <+> binary2doc o <+> t2doc True b
+  sTerm2Doc True a <+> binary2doc o <+> sTerm2Doc True b
 
-binding2doc :: (Name, Ty) -> Doc AnsiStyle
-binding2doc (x, ty) =
-  parens (sep [name2doc x, pretty ":", ty2doc ty])
+sBinding2doc :: (Name, STy) -> Doc AnsiStyle
+sBinding2doc (x, sty) =
+  parens (sep [name2doc x, pretty ":", sTy2Doc sty])
 
 -- | Pretty printing de términos (String)
 pp :: MonadFD4 m => TTerm -> m String
 -- Uncomment to use the Show instance for Term
 {- pp = show -}
 pp t = do
-       gdecl <- gets glb
-       return (render . t2doc False $ openAll fst (map declName gdecl) t)
+       gdecl <- gets termEnvironment
+       return (render . sTerm2Doc False $ openAll fst (map declName gdecl) t)
 
 render :: Doc AnsiStyle -> String
 render = unpack . renderStrict . layoutSmart defaultLayoutOptions
@@ -204,10 +209,10 @@ render = unpack . renderStrict . layoutSmart defaultLayoutOptions
 -- | Pretty printing de declaraciones
 ppDecl :: MonadFD4 m => Decl TTerm -> m String
 ppDecl (Decl p x t) = do 
-  gdecl <- gets glb
+  gdecl <- gets termEnvironment
   return (render $ sep [defColor (pretty "let")
                        , name2doc x 
                        , defColor (pretty "=")] 
-                   <+> nest 2 (t2doc False (openAll fst (map declName gdecl) t)))
+                   <+> nest 2 (sTerm2Doc False (openAll fst (map declName gdecl) t)))
                          
 

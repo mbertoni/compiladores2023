@@ -32,9 +32,10 @@ import Lang
 import Parse ( P, tm, program, declOrTm, runP )
 import Elab ( elab )
 import Eval ( eval )
-import PPrint ( pp , ppTy, ppDecl )
+import PPrint ( pp , ppSTy, ppDecl )
 import MonadFD4
 import TypeChecker ( tc, tcDecl )
+import Common (abort)
 
 prompt :: String
 prompt = "FD4> "
@@ -158,9 +159,9 @@ handleDecl d = do
               addDecl ed
 
       where
-        elabDecl :: MonadFD4 m => SDecl -> m (Maybe Decl TTerm)
-        elabDecl SDeclTy _ = sarasa >> Nothing
-        elabDecl SDeclTerm r = Just $ elab
+        elabDecl :: MonadFD4 m => SDecl -> m (Maybe (Decl TTerm))
+        elabDecl (SDeclType _) = return Nothing -- TODO
+        elabDecl (SDeclTerm r) = return $ Just elab r
 
         typecheckDecl :: MonadFD4 m => Decl STerm -> m (Decl TTerm)
         typecheckDecl (Decl p x t) = tcDecl (Decl p x (elab t))

@@ -12,19 +12,19 @@ module Global where
 import Lang
 
 data GlEnv = GlEnv {
-  inter :: Bool,          --  ^ True, si estamos en modo interactivo.
+  inInteractiveMode :: Bool,          --  ^ True, si estamos en modo interactivo.
                           -- Este parámetro puede cambiar durante la ejecución:
                           -- Es falso mientras se cargan archivos, pero luego puede ser verdadero.
-  lfile :: String,        -- ^ Último archivo cargado.
-  cantTypeDecl :: Int,        -- ^ Cantidad de declaraciones tipo desde la última carga
-  cantTermDecl :: Int,        -- ^ Cantidad de declaraciones término desde la última carga
-  context  :: [Decl Ty], -- ^ Declaraciones de tipos, hay que ver cómo se completa
-  glb :: [Decl TTerm]     -- ^ Entorno con declaraciones globales
+  lastFile :: String,        -- ^ Último archivo cargado.
+  typeDeclNumber :: Int,        -- ^ Cantidad de declaraciones tipo desde la última carga
+  termDeclNumber :: Int,        -- ^ Cantidad de declaraciones término desde la última carga
+  typeContext  :: [Decl Ty], -- ^ Declaraciones de tipos
+  termEnvironment :: [Decl TTerm]     -- ^ Entorno con declaraciones globales ya tipadas
 }
 
 -- ^ Entorno de tipado de declaraciones globales
-tyEnv :: GlEnv ->  [(Name,Ty)]
-tyEnv g = map (\(Decl _ n b) -> (n, getTy b))  (glb g)
+tyEnv :: GlEnv ->  [(Name, Ty)]
+tyEnv g = map (\(Decl _ n tt) -> (n, getTy tt))  (termEnvironment g)
 
 {-
  Tipo para representar las banderas disponibles en línea de comando.
@@ -41,10 +41,10 @@ data Mode =
   -- | Assembler
   -- | Build
 data Conf = Conf {
-    opt   :: Bool,          --  ^ True, si estan habilitadas las optimizaciones.
+    optimize   :: Bool,          --  ^ True, si estan habilitadas las optimizaciones.
     modo  :: Mode
 }
 
 -- | Valor del estado inicial
 initialEnv :: GlEnv
-initialEnv = GlEnv False "" 0 [] []
+initialEnv = GlEnv False "" 0 0 [] []

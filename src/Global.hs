@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedRecordDot #-}
+-- {-# LANGUAGE OverloadedRecordDot #-}
 
 {-|
 Module      : Global
@@ -27,10 +27,10 @@ data GlEnv = GlEnv {
 
 -- ^ Entorno de tipado de declaraciones globales
 globalTypedEnvironment :: GlEnv ->  [(Name, Ty)]
-globalTypedEnvironment g = map (\(Decl _ n tt) -> (n, getTy tt)) g.termEnvironment
+globalTypedEnvironment g = map (\(Decl _ n tt) -> (n, getTy tt)) (termEnvironment g)
 
 globalTypeContext :: GlEnv ->  [(Name, Ty)]
-globalTypeContext g = map (\(Decl _ n ty) -> (n, ty)) g.typeContext
+globalTypeContext g = map (\(Decl _ n ty) -> (n, ty)) (typeContext g)
 
 {-
  Tipo para representar las banderas disponibles en línea de comando.

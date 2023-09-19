@@ -91,7 +91,7 @@ typeP = try (do
           reservedOp "->"
           y <- typeP
           return (SFunTy x y))
-      <|> tyatom
+      <|> tyatom -- TODO: Acomodar para que parsee synonyms también
           
 const :: P Const
 const = CNat <$> num
@@ -218,7 +218,7 @@ letrec = do
 
 -- | Parser de términos
 tm :: P STerm
-tm = app <|> lam <|> ifz <|> printOp <|> fix <|> try letexp <|> letfun
+tm = app <|> lam <|> ifz <|> printOp <|> fix <|> try letexp <|> try letrec <|> letfun 
 
 -- | Parser de declaraciones
 termDecl :: P SDeclaration

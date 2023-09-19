@@ -1,5 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedRecordDot #-}
+-- {-# LANGUAGE OverloadedRecordDot #-}
 
 {-|
 Module      : Main
@@ -31,12 +31,12 @@ import Global
 import Errors
 import Lang
 import Parse ( P, tm, program, declOrTm, runP )
-import Elab ( elabDeclaration )
+import Elab ( elabDeclaration , elabTerm)
 import Eval ( eval )
-import PPrint ( pp, ppDecl )
+import PPrint ( pp, ppTy, ppTypeDecl, ppTermDecl )
 import MonadFD4
 import TypeChecker ( tc, tcDecl )
-import Common (abort)
+import Common ()
 
 prompt :: String
 prompt = "FD4> "
@@ -142,32 +142,41 @@ handleDeclaration d = do
         s <- get
         case m of
           Interactive -> case elabDeclaration (globalTypeContext s) d of
-            Decl p x (Left tm) -> do
-              tt <- tcDecl (Decl p x tm)
-              te <- eval tt.declBody
+            Decl p x (Left term) -> do
+              tt <- tcDecl (Decl p x term)
+              te <- eval (declBody tt)
               addTermDecl (Decl p x te)
             Decl p x (Right ty) -> do
               addTypeDecl (Decl p x ty)
               
           Typecheck -> do
-              f <- getLastFile
-              printFD4 ("Chequeando tipos de "++f)
-              td <- typecheckDecl d
-              addDecl td
-              -- opt <- getOpt
-              -- td' <- if opt then optimize td else td
-              ppterm <- ppDecl td  --td'
-              printFD4 ppterm
+            f <- getLastFile
+            printFD4 ("Chequeando tipos de "++f)
+            case elabDeclaration (globalTypeContext s) d of
+              Decl p x (Left term) -> do
+                tt <- tcDecl (Decl p x term)
+                addTermDecl tt
+                ppterm <- ppTermDecl tt  
+                printFD4 ppterm
+              Decl p x (Right ty) -> do
+                addTypeDecl (Decl p x ty)
+                ppty <- ppTypeDecl (Decl p x ty)  
+                printFD4 ppty
+            -- opt <- getOpt
+            -- td' <- if opt then optimize td else td
           
-          Eval -> do
-              td <- typecheckDecl d
-              -- td' <- if opt then optimizeDecl td else return td
-              ed <- evalDecl td
-              addDecl ed
-
-      where
-        typecheckDecl :: MonadFD4 m => Decl Term -> m (Decl TTerm)
-        typecheckDecl (Decl p x t) = tcDecl (Decl p x (elab t))
+          Eval -> case elabDeclaration (globalTypeContext s) d of
+            Decl p x (Left term) -> do
+              tt <- tcDecl (Decl p x term)
+              te <- eval (declBody tt)
+              addTermDecl (Decl p x te)
+            Decl p x (Right ty) -> do
+              addTypeDecl (Decl p x ty)
+              -- do
+              -- td <- typecheckDecl d
+              -- -- td' <- if opt then optimizeDecl td else return td
+              -- ed <- evalDecl td
+              -- addDecl ed
 
 
 
@@ -235,7 +244,7 @@ handleCommand cmd = do
        Quit   ->  return False
        Noop   ->  return True
        Help   ->  printFD4 (helpTxt commands) >> return True
-       Browse ->  do  printFD4 (unlines (reverse (nub (map declName glb))))
+       Browse ->  do  printFD4 (unlines (reverse (nub (map declName termEnvironment))))
                       return True
        Compile c ->
                   do  case c of
@@ -250,14 +259,14 @@ compilePhrase ::  MonadFD4 m => String -> m ()
 compilePhrase x = do
     dot <- parseIO "<interactive>" declOrTm x
     case dot of
-      Left d  -> handleDecl d
+      Left d  -> handleDeclaration d
       Right t -> handleTerm t
 
 handleTerm ::  MonadFD4 m => STerm -> m ()
 handleTerm t = do
-         let t' = elab t
          s <- get
-         tt <- tc t' (tyEnv s)
+         let t' = elabTerm (globalTypeContext s) t
+         tt <- tc t' (globalTypedEnvironment s)
          te <- eval tt
          ppte <- pp te
          printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
@@ -266,8 +275,9 @@ printPhrase   :: MonadFD4 m => String -> m ()
 printPhrase x =
   do
     x' <- parseIO "<interactive>" tm x
-    let ex = elab x'
-    tyenv <- gets tyEnv
+    s <- get
+    let ex = elabTerm (globalTypeContext s) x'
+    tyenv <- gets globalTypedEnvironment
     tex <- tc ex tyenv
     t  <- case x' of
            (SV p f) -> fromMaybe tex <$> lookupDecl f
@@ -280,8 +290,8 @@ printPhrase x =
 typeCheckPhrase :: MonadFD4 m => String -> m ()
 typeCheckPhrase x = do
          t <- parseIO "<interactive>" tm x
-         let t' = elab t
          s <- get
-         tt <- tc t' (tyEnv s)
+         let t' = elabTerm (globalTypeContext s) t
+         tt <- tc t' (globalTypedEnvironment s)
          let ty = getTy tt
          printFD4 (ppTy ty)

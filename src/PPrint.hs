@@ -15,7 +15,8 @@ module PPrint (
     ppTy,
     ppSTy,
     ppName,
-    ppDecl
+    ppTypeDecl,
+    ppTermDecl
     ) where
 
 import Lang
@@ -36,7 +37,7 @@ import Prettyprinter
       Doc,
       Pretty(pretty) )
 import MonadFD4 ( gets, MonadFD4 )
-import Global ( GlEnv(termEnvironment) )
+import Global ( GlEnv(termEnvironment, typeContext) )
 
 ty2STy :: Ty -> STy
 ty2STy NatTy = SNatTy
@@ -211,12 +212,20 @@ render :: Doc AnsiStyle -> String
 render = unpack . renderStrict . layoutSmart defaultLayoutOptions
 
 -- | Pretty printing de declaraciones
-ppDecl :: MonadFD4 m => Decl TTerm -> m String
-ppDecl (Decl p x t) = do 
+ppTermDecl :: MonadFD4 m => Decl TTerm -> m String
+ppTermDecl (Decl p x t) = do 
   gdecl <- gets termEnvironment
   return (render $ sep [defColor (pretty "let")
                        , name2doc x 
                        , defColor (pretty "=")] 
                    <+> nest 2 (sTerm2Doc False (openAll fst (map declName gdecl) t)))
+                         
+ppTypeDecl :: MonadFD4 m => Decl Ty -> m String
+ppTypeDecl (Decl p x ty) = do 
+  gdecl <- gets typeContext
+  return (render $ sep [defColor (pretty "type")
+                       , name2doc x 
+                       , defColor (pretty "=") 
+                       , defColor (pretty (ppTy ty)) ])
                          
 

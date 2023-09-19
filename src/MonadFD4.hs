@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedRecordDot #-}
+-- {-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use <$>" #-}
@@ -98,8 +98,8 @@ addTypeDecl d = modify (\s -> s { typeContext = d : typeContext s, typeDeclNumbe
 eraseLastFileDecls :: MonadFD4 m => m ()
 eraseLastFileDecls = do
     s <- get
-    let (_, terms) = splitAt s.termDeclNumber s.termEnvironment
-        (_, types) = splitAt s.typeDeclNumber s.typeContext
+    let (_, terms) = splitAt (typeDeclNumber s) (termEnvironment s)
+        (_, types) = splitAt (typeDeclNumber s) (typeContext s)
     modify (\s -> s { termEnvironment = terms, termDeclNumber = 0, typeContext = types, typeDeclNumber = 0})
 
 lookupDecl :: MonadFD4 m => Name -> m (Maybe TTerm)

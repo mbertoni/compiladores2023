@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedRecordDot #-}
+-- {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE LambdaCase #-}
 
 {-|
@@ -13,7 +13,7 @@ Este módulo permite elaborar términos y declaraciones para convertirlas desde
 fully named (@STerm) a locally closed (@Term@)
 -}
 
-module Elab (elabDeclaration) where
+module Elab (elabDeclaration, elabTerm) where
 
 import Common (abort)
 import Lang
@@ -73,7 +73,7 @@ elabType types = \case
   SVar n -> fromMaybe (abort "alias no definido") (lookup n types)
 
 elabDeclaration :: [(Name, Ty)] -> SDeclaration -> Decl (Either Term Ty)
-elabDeclaration types decl = Decl {declName = decl.sDeclName, declPos = decl.sDeclPos, declBody = body} where
-  body = case decl.sDeclBody of
+elabDeclaration types decl = Decl {declName = sDeclName decl, declPos = sDeclPos decl, declBody = body} where
+  body = case (sDeclBody decl) of
     STermDecl sTerm -> Left $ elabTerm types sTerm
     STypeDecl sType -> Right $ elabType types sType

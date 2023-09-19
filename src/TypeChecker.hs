@@ -102,14 +102,13 @@ domCod tt = case getTy tt of
     _         -> typeError tt $ "Se esperaba un tipo función, pero se obtuvo: " ++ ppTy (getTy tt)
 
 -- | 'tcDecl' chequea el tipo de una declaración
--- y la agrega al entorno de tipado de declaraciones globales
 tcDecl :: MonadFD4 m  => Decl Term -> m (Decl TTerm)
 tcDecl (Decl p n t) = do
     --chequear si el nombre ya está declarado
-    mty <- lookupTy n
+    mty <- lookupTypeOfGlobal n
     case mty of
         Nothing -> do  --no está declarado 
                   s <- get
-                  tt <- tc t (tyEnv s)                 
+                  tt <- tc t (globalTypedEnvironment s)                 
                   return (Decl p n tt)
         Just _  -> failPosFD4 p $ n ++" ya está declarado"

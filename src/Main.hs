@@ -107,7 +107,7 @@ repl args = do
                        b <- lift $ catchErrors $ handleCommand c
                        maybe loop (`when` loop) b
 
-loadFile ::  MonadFD4 m => FilePath -> m [SDecl]
+loadFile ::  MonadFD4 m => FilePath -> m [SDeclaration]
 loadFile f = do
     let filename = reverse (dropWhile isSpace (reverse f))
     x <- liftIO $ catch (readFile filename)
@@ -122,8 +122,8 @@ compileFile f = do
     i <- getInter
     setInter False
     when i $ printFD4 ("Abriendo "++f++"...")
-    decls <- loadFile f
-    mapM_ handleDecl decls
+    declarations <- loadFile f
+    mapM_ handleDeclaration declarations
     setInter i
 
 parseIO ::  MonadFD4 m => String -> P a -> String -> m a
@@ -136,14 +136,19 @@ evalDecl (Decl p x e) = do
     e' <- eval e
     return (Decl p x e')
 
-handleDecl ::  MonadFD4 m => SDecl -> m ()
-handleDecl d = do
+handleDeclaration ::  MonadFD4 m => SDeclaration -> m ()
+handleDeclaration d = do
         m <- getMode
+        s <- get
         case m of
-          Interactive -> do
-              (Decl p x tt) <- typecheckDecl d
-              te <- eval tt
-              addDecl (Decl p x te)
+          Interactive -> case elabDeclaration (globalTypeContext s) d of
+            Decl p x (Left tm) -> do
+              tt <- tcDecl (Decl p x tm)
+              te <- eval tt.declBody
+              addTermDecl (Decl p x te)
+            Decl p x (Right ty) -> do
+              addTypeDecl (Decl p x ty)
+              
           Typecheck -> do
               f <- getLastFile
               printFD4 ("Chequeando tipos de "++f)
@@ -153,6 +158,7 @@ handleDecl d = do
               -- td' <- if opt then optimize td else td
               ppterm <- ppDecl td  --td'
               printFD4 ppterm
+          
           Eval -> do
               td <- typecheckDecl d
               -- td' <- if opt then optimizeDecl td else return td
@@ -160,10 +166,6 @@ handleDecl d = do
               addDecl ed
 
       where
-        elabDecl :: MonadFD4 m => SDecl -> m (Maybe (Decl TTerm))
-        elabDecl (SDeclType _) = return Nothing -- TODO
-        elabDecl (SDeclTerm r) = return $ Just $ elab r.declBody
-
         typecheckDecl :: MonadFD4 m => Decl Term -> m (Decl TTerm)
         typecheckDecl (Decl p x t) = tcDecl (Decl p x (elab t))
 

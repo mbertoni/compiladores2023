@@ -21,7 +21,7 @@ module MonadFD4 (
   FD4,
   runFD4,
   lookupDecl,
-  lookupTy,
+  lookupTypeOfGlobal,
   printFD4,
   setLastFile,
   getLastFile,
@@ -33,6 +33,7 @@ module MonadFD4 (
   failPosFD4,
   failFD4,
   addTermDecl,
+  addTypeDecl,
   catchErrors,
   MonadFD4,
   module Control.Monad.Except,
@@ -110,10 +111,16 @@ lookupDecl nm = do
    where hasName :: Name -> Decl a -> Bool
          hasName nm (Decl { declName = nm' }) = nm == nm'
 
-lookupTy :: MonadFD4 m => Name -> m (Maybe Ty)
-lookupTy nm = do
+lookupTypeOfGlobal :: MonadFD4 m => Name -> m (Maybe Ty)
+lookupTypeOfGlobal nm = do
       s <- get
-      return $ lookup nm (tyEnv s)
+      return $ lookup nm (globalTypedEnvironment s)
+
+lookupAlias :: MonadFD4 m => Name -> m (Maybe Ty)
+lookupAlias nm = do
+      s <- get
+      return $ lookup nm (globalTypeContext s)
+
 
 failPosFD4 :: MonadFD4 m => Pos -> String -> m a
 failPosFD4 p s = throwError (ErrPos p s)

@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 {-|
 Module      : Global
 Description : Define el estado global del compilador
@@ -11,6 +13,7 @@ module Global where
 
 import Lang
 
+
 data GlEnv = GlEnv {
   inInteractiveMode :: Bool,          --  ^ True, si estamos en modo interactivo.
                           -- Este parámetro puede cambiar durante la ejecución:
@@ -23,8 +26,11 @@ data GlEnv = GlEnv {
 }
 
 -- ^ Entorno de tipado de declaraciones globales
-tyEnv :: GlEnv ->  [(Name, Ty)]
-tyEnv g = map (\(Decl _ n tt) -> (n, getTy tt))  (termEnvironment g)
+globalTypedEnvironment :: GlEnv ->  [(Name, Ty)]
+globalTypedEnvironment g = map (\(Decl _ n tt) -> (n, getTy tt)) g.termEnvironment
+
+globalTypeContext :: GlEnv ->  [(Name, Ty)]
+globalTypeContext g = map (\(Decl _ n ty) -> (n, ty)) g.typeContext
 
 {-
  Tipo para representar las banderas disponibles en línea de comando.

@@ -30,13 +30,13 @@ data SDecl a = SDecl
   }
   deriving (Show, Functor)
 
-data SDeclKind =
+data SDeclBody =
     STypeDecl STy
   | STermDecl STerm
   deriving (Show)
 
 -- | Estas son las declaraciones válidas del FD4
-type SDeclaration = SDecl SDeclKind
+type SDeclaration = SDecl SDeclBody
 
 -- | AST the términos superficiales
 data STm info ty var =

@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor #-}
+-- {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE EmptyDataDeriving #-}
 

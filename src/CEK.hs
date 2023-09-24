@@ -1,73 +1,81 @@
-module CEK where
+module CEK (eval) where
 
-import Lang
-import MonadFD4
 import Common
 import Eval (semOp)
+import Lang
+import MonadFD4
 
-data Val = VConst Const | VClosure Closure
-    deriving Show
+data Value = Const Const | Clos Closure
+  deriving (Show)
 
-val2TTerm :: Val -> TTerm
-val2TTerm (VConst c) = Const (NoPos, NatTy) c
-val2TTerm (VClosure f) = abort "por ahora no tenemos operadores de alto orden, Seba hacete el apply y el comp"
+val2TTerm :: Value -> TTerm
+val2TTerm (Const c) = Cst (NoPos, NatTy) c
+val2TTerm (Clos f) = abort "rough operator"
 
-data Closure =
-    ClosureFun Env Name TTerm
-    | ClosureFix Env Name Name TTerm
-    deriving Show
+data Closure
+  = ClosFun Env Name TTerm
+  | ClosFix Env Name Name TTerm
+  deriving (Show)
 
-type Env = [Val] -- rho
+type Env = [Value]
 
-type Kont = [Frame]
-data Frame  = KArgL Env TTerm          -- (App □ arg)
-            | KArgR Closure            -- (App f □)
-            | KIfz Env TTerm TTerm     -- (IfZ □ then else)
-            | KBinL Env BinaryOp TTerm -- (□ (+) u)
-            | KBinR BinaryOp Val       -- (v (+) □)
-            | KVar Var
-            | KPrint String            -- (print s □)
-            | KLetDef Env Name TTerm   -- let □ in term
-            -- | KLetBody Env Name TTerm  -- let def in □
-            deriving Show
+type Continuation = [Frame]
 
-seek :: MonadFD4 m => TTerm -> Env -> Kont -> m Val
-seek (Print _ s t) env k = seek t env (KPrint s:k) -- < print s t , ρ, k> -> <t , ρ, (print s □):k >
-seek (BinaryOp i op t u) env k  = seek t env (KBinL env op u : k)
-seek (IfZ i c t e) env k        = seek c env (KIfz env t e : k)
-seek (App i t u) env k          = seek t env (KArgL env u : k)
-seek (V i (Bound b)) env k      = abort "unimplemented" -- acá qué hay que hacer?
-seek (V i (Free nm)) env k      = abort "unimplemented" -- entiendo que acá tendríamos que fallar
-seek (V i (Global nm)) env k    = do
+data Frame
+  = AppL Env TTerm -- (App □ arg)
+  | AppR Closure -- (App f □)
+  | IfZC Env TTerm TTerm -- (IfZ □ then else)
+  | BOpL Env BinaryOp TTerm -- (□ (+) u)
+  | BOpR BinaryOp Value -- (v (+) □)
+  | VarT Var
+  | PntT String -- (print s □)
+  | LetD Env Name TTerm -- let □ in term
+  deriving (Show)
+
+seek :: (MonadFD4 m) => TTerm -> Env -> Continuation -> m Value
+seek term env k = case term of
+  Pnt _ s t -> seek t env (PntT s : k)
+  BOp _ op t u -> seek t env (BOpL env op u : k)
+  IfZ _ c t e -> seek c env (IfZC env t e : k)
+  App _ t u -> seek t env (AppL env u : k)
+  Lam _ nm _ (Sc1 t) -> destroy (Clos (ClosFun env nm t)) k
+  Fix _ f _ x _ (Sc2 t) -> destroy (Clos (ClosFix env f x t)) k
+  Cst _ c -> destroy (Const c) k
+  Let _ n _ def (Sc1 t) -> seek def env (LetD env n t : k)
+  Var _ (Bound b) -> abort "unimplemented" -- acá qué hay que hacer?
+  Var _ (Free nm) -> abort "unimplemented" -- entiendo que acá tendríamos que fallar
+  Var _ (Global nm) -> do
     t <- lookupDecl nm
     case t of
-        Nothing -> abort "No le encontramos la variable global"
-        Just val -> seek val env k -- destroy v k
-seek (Lam i nm _ (Sc1 t)) env k     = destroy (VClosure (ClosureFun env nm t)) k
-seek (Fix i f _ x _ (Sc2 t)) env k  = destroy (VClosure (ClosureFix env f x t)) k
-seek (Const i c) env k = destroy (VConst c) k
-seek (Let i n _ def (Sc1 t)) env k = seek def env (KLetDef env n t : k)
+      Nothing -> abort "No le encontramos la variable global"
+      Just val -> seek val env k -- pero este val tiene tipo term, pero sabemos que es un val, y si cambiamos de modo?
+
 -- seek _ env k = abort "hacer el ejercicio de la practica"
 -- resta hacer el let
 
-destroy :: MonadFD4 m => Val -> Kont -> m Val       -- <<>>
+destroy :: (MonadFD4 m) => Value -> Continuation -> m Value
 destroy v [] = return v
-destroy v (KPrint str : k)                                 = destroy v k -- Nos falta imprimir?
-destroy v (KBinL env op rt : k)                             = seek rt env (KBinR op v :k)
-destroy v (KBinR op lv : k)   = case (lv, v) of
-    (VConst (CNat l), VConst (CNat r)) -> destroy (VConst (CNat (semOp op l r))) k
-    _ -> abort "error de tipos runtime"
-destroy (VConst (CNat 0)) (KIfz env t e : k)               = seek t env k
-destroy (VConst (CNat _)) (KIfz env t e : k)               = seek e env k
-destroy (VClosure clos) (KArgL env t : k)                  = seek t env (KArgR clos : k)
-destroy v (KArgR (ClosureFun env x t) : k)                 = seek t (v : env) k
-destroy v (KArgR clos@(ClosureFix env f x t) : k)          = seek t (VClosure clos : v : env) k
-destroy v (KLetDef env nm body : k)                        = seek body (v : env) k
--- destroy v (KLetBody)                                       = _
+destroy v (PntT str : k) = destroy v k -- Nos falta imprimir?
+destroy v (BOpL env op rt : k) = seek rt env (BOpR op v : k)
+destroy v (BOpR op lv : k) = case (lv, v) of
+  (Const (CNat l), Const (CNat r)) -> destroy (Const (CNat (semOp op l r))) k
+  _ -> abort "error de tipos runtime"
+destroy (Const (CNat 0)) (IfZC env t e : k) = seek t env k
+destroy (Const (CNat _)) (IfZC env t e : k) = seek e env k
+destroy (Clos clos) (AppL env t : k) = seek t env (AppR clos : k)
+destroy v (AppR (ClosFun env x t) : k) = seek t (v : env) k
+destroy v (AppR clos@(ClosFix env f x t) : k) = seek t (Clos clos : v : env) k
+destroy v (LetD env nm body : k) = seek body (v : env) k
 destroy v _ = abort "its no possible Blenda"
 
+eval :: (MonadFD4 m) => TTerm -> m TTerm
+-- Ayer escribimos esto
+-- eval t = do
+--   v <- seek t [] []
+--   return (val2TTerm v)
 
-evalCEK :: MonadFD4 m => TTerm -> m TTerm
-evalCEK t = do
-    v <- seek t [] []
-    return (val2TTerm v)
+-- Hoy se me ocurre esto
+-- eval t = fmap val2TTerm $ seek t [] []
+
+-- el linter me dice que haga esto
+eval t = val2TTerm <$> seek t [] []

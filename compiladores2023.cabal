@@ -49,6 +49,7 @@ executable compiladores2023
     , base                         >=4.7
     , binary
     , bytestring
+    , data-default
     , exceptions
     , extra
     , filepath

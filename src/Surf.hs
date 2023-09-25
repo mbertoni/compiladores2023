@@ -15,9 +15,9 @@ newtype Const = N {unN :: Int}
 -- Como se llamaba? fromInteger o Num para poder escribir 1 :: Const o 1 :: Term ??
 
 data Decl a = Decl
-  { declPos :: Pos,
-    declName :: Name,
-    declBody :: a
+  { pos :: Pos,
+    name :: Name,
+    body :: a
   }
   deriving (Show, Functor)
 

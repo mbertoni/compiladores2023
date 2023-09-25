@@ -177,14 +177,14 @@ handleDeclaration d = do
     _ -> case elabDeclaration (globalTypeContext s) d of
       C.Decl p x (Left term) -> do
         tt <- tcDecl (C.Decl p x term)
-        te <- CEK.eval (C.declBody tt)
+        te <- CEK.eval (C.body tt)
         addTermDecl (C.Decl p x te)
       C.Decl p x (Right ty) -> do
         addTypeDecl (C.Decl p x ty)
     Interactive -> case elabDeclaration (globalTypeContext s) d of
       C.Decl p x (Left term) -> do
         tt <- tcDecl (C.Decl p x term)
-        te <- CEK.eval (C.declBody tt)
+        te <- CEK.eval (C.body tt)
         addTermDecl (C.Decl p x te)
       C.Decl p x (Right ty) -> do
         addTypeDecl (C.Decl p x ty)
@@ -206,7 +206,7 @@ handleDeclaration d = do
     Eval -> case elabDeclaration (globalTypeContext s) d of
       C.Decl p x (Left term) -> do
         tt <- tcDecl (C.Decl p x term)
-        te <- eval (C.declBody tt)
+        te <- eval (C.body tt)
         addTermDecl (C.Decl p x te)
       C.Decl p x (Right ty) -> do
         addTypeDecl (C.Decl p x ty)
@@ -286,7 +286,7 @@ commands =
 helpTxt :: [InteractiveCommand] -> String
 helpTxt cs =
   "Lista de comandos:  Cualquier comando puede ser abreviado a :c donde\n"
-    ++ "c es el primer caracter del nombre completo.\n\n"
+    ++ "c es el primer carácter del nombre completo.\n\n"
     ++ "<expr>                  evaluar la expresión\n"
     ++ "let <var> = <expr>      definir una variable\n"
     ++ unlines
@@ -308,7 +308,7 @@ handleCommand cmd = do
     Noop -> return True
     Help -> printFD4 (helpTxt commands) >> return True
     Browse -> do
-      printFD4 (unlines (reverse (nub (map C.declName termEnvironment))))
+      printFD4 (unlines (reverse (nub (map C.name termEnvironment))))
       return True
     Compile c -> do
       case c of

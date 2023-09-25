@@ -104,11 +104,11 @@ lookupDecl :: (MonadFD4 m) => Name -> m (Maybe TTerm)
 lookupDecl nm = do
   s <- get
   case filter (hasName nm) (termEnvironment s) of
-    (Decl {declBody = e}) : _ -> return (Just e)
+    (Decl {body = e}) : _ -> return (Just e)
     [] -> return Nothing
   where
     hasName :: Name -> Decl a -> Bool
-    hasName nm (Decl {declName = nm'}) = nm == nm'
+    hasName nm (Decl {name = nm'}) = nm == nm'
 
 lookupTypeOfGlobal :: (MonadFD4 m) => Name -> m (Maybe Ty)
 lookupTypeOfGlobal nm = do

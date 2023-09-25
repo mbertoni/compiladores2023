@@ -10,7 +10,7 @@ newlines-between-decls: 1
 haddock-style: single-line
 haddock-style-module: null
 let-style: inline
-in-style: no-space
+in-style: no-space # para que no quede "a mitad de tab"
 single-constraint-parens: always
 unicode: never
 respectful: false

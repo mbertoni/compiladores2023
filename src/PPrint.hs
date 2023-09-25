@@ -243,7 +243,7 @@ pp :: (MonadFD4 m) => TTerm -> m String
 {- pp = show -}
 pp t = do
   globals <- gets termEnvironment
-  return (render . sTerm2Doc False $ openAll fst (map declName globals) t)
+  return (render . sTerm2Doc False $ openAll fst (map name globals) t)
 
 render :: Doc AnsiStyle -> String
 render = unpack . renderStrict . layoutSmart defaultLayoutOptions
@@ -259,7 +259,7 @@ ppTermDecl (Decl p x t) = do
             name2doc x,
             defColor (pretty "=")
           ]
-          <+> nest 2 (sTerm2Doc False (openAll fst (map declName globals) t))
+          <+> nest 2 (sTerm2Doc False (openAll fst (map name globals) t))
     )
 
 ppTypeDecl :: (MonadFD4 m) => Decl Ty -> m String

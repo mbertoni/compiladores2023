@@ -85,10 +85,8 @@ elabBOp S.Sub = Sub
 
 elabDeclaration :: [(Name, Ty)] -> S.Declaration -> Decl (Either Term Ty)
 elabDeclaration types decl =
-  Decl {declName = S.declName decl, declPos = S.declPos decl, declBody = body}
+  Decl {name = S.name decl, pos = S.pos decl, body = elaboratedBody}
   where
-    body = case S.declBody decl of
+    elaboratedBody = case S.body decl of
       S.TermDecl sTerm -> Left $ elabTerm types sTerm
       S.TypeDecl sType -> Right $ elabType types sType
-
-

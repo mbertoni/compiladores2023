@@ -2,20 +2,23 @@ module CEK (eval) where
 
 import Common
 import Core
+import Data.Default (def)
 import Eval (semOp)
 import MonadFD4
 
-data Value = Const Literal | Clos Closure
+data Value
+  = VNat Int
+  | CFun Env Name TTerm
+  | CFix Env Name Name TTerm
   deriving (Show)
+
+lit2Value :: Literal -> Value
+lit2Value (N i) = VNat i
+lit2Value (S s) = abort "not implemented"
 
 val2TTerm :: Value -> TTerm
-val2TTerm (Const c) = Lit (NoPos, Nat) c
-val2TTerm (Clos f) = abort "rough operator"
-
-data Closure
-  = ClosFun Env Name TTerm
-  | ClosFix Env Name Name TTerm
-  deriving (Show)
+val2TTerm (VNat i) = Lit (def, Nat) (N i)
+val2TTerm _ = abort "immediate value expected"
 
 type Env = [Value]
 
@@ -23,12 +26,12 @@ type Continuation = [Frame]
 
 data Frame
   = AppL Env TTerm -- (App □ arg)
-  | AppR Closure -- (App f □)
+  | AppR Value -- (App f □)
   | IfZC Env TTerm TTerm -- (IfZ □ then else)
   | BOpL Env BinaryOp TTerm -- (□ (+) u)
   | BOpR BinaryOp Value -- (v (+) □)
-  | VarT Var
-  | PntT Literal -- (print s □)
+  | -- | VarT Var
+    PntT Literal -- (print s □)
   | LetD Env Name TTerm -- let □ in term
   deriving (Show)
 
@@ -38,10 +41,10 @@ seek term env k = case term of
   BOp _ op t u -> seek t env (BOpL env op u : k)
   IfZ _ c t e -> seek c env (IfZC env t e : k)
   App _ t u -> seek t env (AppL env u : k)
-  Lam _ nm _ (Sc1 t) -> destroy (Clos (ClosFun env nm t)) k
-  Fix _ f _ x _ (Sc2 t) -> destroy (Clos (ClosFix env f x t)) k
-  Lit _ c -> destroy (Const c) k
-  Let _ n _ def (Sc1 t) -> seek def env (LetD env n t : k)
+  Lam _ nm _ (Sc1 t) -> destroy (CFun env nm t) k
+  Fix _ f _ x _ (Sc2 t) -> destroy (CFix env f x t) k
+  Lit _ l -> destroy (lit2Value l) k
+  Let _ n _ t' (Sc1 t) -> seek t' env (LetD env n t : k)
   Var _ (Bound b) -> abort "unimplemented" -- acá qué hay que hacer?
   Var _ (Free nm) -> abort "unimplemented" -- entiendo que acá tendríamos que fallar
   Var _ (Global nm) -> do
@@ -52,18 +55,22 @@ seek term env k = case term of
 
 destroy :: (MonadFD4 m) => Value -> Continuation -> m Value
 destroy v [] = return v
-destroy v (PntT str : k) = destroy v k -- Nos falta imprimir?
-destroy v (BOpL env op rt : k) = seek rt env (BOpR op v : k)
-destroy v (BOpR op lv : k) = case (lv, v) of
-  (Const (N l), Const (N r)) -> destroy (Const (N (semOp op l r))) k
-  _ -> abort "error de tipos runtime"
-destroy (Const (N 0)) (IfZC env t e : k) = seek t env k
-destroy (Const (N _)) (IfZC env t e : k) = seek e env k
-destroy (Clos clos) (AppL env t : k) = seek t env (AppR clos : k)
-destroy v (AppR (ClosFun env x t) : k) = seek t (v : env) k
-destroy v (AppR clos@(ClosFix env f x t) : k) = seek t (Clos clos : v : env) k
-destroy v (LetD env _ t : k) = seek t (v : env) k -- olvido tu nombre?
-destroy v _ = abort "its no possible Blenda"
+destroy v (fr : k) = case fr of
+  PntT lit -> destroy v k -- Nos falta imprimir?
+  BOpL env op term -> seek term env (BOpR op v : k)
+  BOpR op value -> case (value, v) of
+    (VNat l, VNat r) -> destroy (VNat $ semOp op l r) k
+    _ -> abort "error de tipos runtime"
+  IfZC env t e -> case v of
+    VNat 0 -> seek t env k
+    VNat _ -> seek e env k
+    _ -> abort "error de tipos runtime"
+  AppL env t -> seek t env (AppR v : k)
+  AppR value -> case value of
+    CFun env x t -> seek t (v : env) k
+    CFix env f x t -> seek t (value : v : env) k
+    _ -> abort "error de tipos runtime"
+  LetD env _ t -> seek t (v : env) k -- olvido tu nombre?
 
 eval :: (MonadFD4 m) => TTerm -> m TTerm
 -- Ayer escribimos esto

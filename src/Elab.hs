@@ -14,10 +14,12 @@
 module Elab (elabDeclaration, elabTerm) where
 
 import Common (abort)
-import Core
+import Core as C
 import Data.Maybe
 import Subst
 import qualified Surf as S
+import Data.String (IsString (..))
+
 
 -- | 'go transforma variables ligadas en índices de de Bruijn
 -- en un término dado.
@@ -35,11 +37,9 @@ elabTerm types = go []
         if v `elem` env
           then Var p (Free v)
           else Var p (Global v)
-      S.Cst p c ->
-        Cst p (elabConst c)
+      S.Lit p int -> Lit p (fromInteger int)
       S.Lam p [] t -> abort "Empty lambda binding list"
-      S.Lam p [(v, ty)] t ->
-        Lam p v (go' ty) (close v (go (v : env) t))
+      S.Lam p [(v, ty)] t -> Lam p v (go' ty) (close v (go (v : env) t))
       S.Lam p ((v, ty) : bs) t ->
         Lam p v (go' ty) (close v (go (v : env) (S.Lam p bs t)))
       S.Fix i (f, fty) [] t -> abort "Empty fix binding list"
@@ -54,12 +54,12 @@ elabTerm types = go []
         where
           funTy = S.tyFold (map snd bs ++ [ty])
       S.UOp i S.Bang t ->
-        IfZ i (go env t) (Cst i (N 1)) (Cst i (N 0))
+        IfZ i (go env t) (Lit i (N 1)) (Lit i (N 0))
       S.If i _ -> abort "unimplemented"
       -- Operadores binarios
       S.BOp i o t u -> BOp i (elabBOp o) (go env t) (go env u)
       -- Operador Print
-      S.Pnt i str t -> Pnt i str (go env t)
+      S.Pnt i str t -> Pnt i (fromString str) (go env t)
       -- Aplicaciones generales
       S.App p h a -> App p (go env h) (go env a)
       S.Let p (v, vty) def body ->
@@ -76,8 +76,6 @@ elabType types = \case
   S.Arrow t t' -> Arrow (elabType types t) (elabType types t')
   S.Alias n -> fromMaybe (abort "alias no definido") (lookup n types)
 
-elabConst :: S.Const -> Const
-elabConst = N . S.unN
 
 elabBOp :: S.BinaryOp -> BinaryOp
 elabBOp S.Add = Add

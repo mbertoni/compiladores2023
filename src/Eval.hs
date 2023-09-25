@@ -36,28 +36,28 @@ eval (App p l r) = do
     (Lam _ y _ m, n) -> eval (subst n m)
     (ff@(Fix _ f _ _ _ t), n) -> eval (subst2 ff n t)
     _ -> abort ("Error de tipo en runtime " ++ show (le, re))
-eval (Pnt p str t) = do
+eval (Pnt p lit t) = do
   te <- eval t
   case te of
-    Cst _ (N n) -> do
-      printFD4 (str ++ show n)
+    Lit _ (N n) -> do
+      printFD4 (unS lit ++ show n)
       return te
     _ -> abort "Error de tipo en runtime! : Print"
 eval (BOp p op t u) = do
   te <- eval t
   ue <- eval u
   case (te, ue) of
-    (Cst _ (N n), Cst _ (N m)) ->
+    (Lit _ (N n), Lit _ (N m)) ->
       return $
-        Cst p (N (semOp op n m))
+        Lit p (N (semOp op n m))
     _ -> do
       pt <- pp te
       abort $ "Error de tipo en runtime!: BinaryOp " ++ pt
 eval (IfZ p c t e) = do
   ce <- eval c
   case ce of
-    Cst _ (N 0) -> eval t
-    Cst _ (N _) -> eval e
+    Lit _ (N 0) -> eval t
+    Lit _ (N _) -> eval e
     c' -> abort "Error de tipo en runtime!: IfZ"
 eval (Let _ _ _ m n) = do
   v <- eval m

@@ -9,11 +9,6 @@ import Common (Pos)
 
 type Name = String
 
-newtype Const = N {unN :: Int}
-  deriving newtype (Show)
-
--- Como se llamaba? fromInteger o Num para poder escribir 1 :: Const o 1 :: Term ??
-
 data Decl a = Decl
   { pos :: Pos,
     name :: Name,
@@ -35,11 +30,16 @@ data UnaryOp = Bang
 data BinaryOp = Add | Sub
   deriving (Show)
 
+type Binding from to = (from, to)
+
+type Bindings from to = [Binding from to]
+
 -- | AST the términos superficiales
 data Tm info ty var
-  = Var info var
-  | Cst info Const
-  | Lam info [(var, ty)] (Tm info ty var)
+  =
+  Var info var
+  | Lit info Integer
+  | Lam info (Bindings var ty) (Tm info ty var)
   | App info (Tm info ty var) (Tm info ty var)
   | Pnt info String (Tm info ty var)
   | BOp info BinaryOp (Tm info ty var) (Tm info ty var)

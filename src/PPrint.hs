@@ -54,9 +54,11 @@ op2SOp :: BinaryOp -> S.BinaryOp
 op2SOp Add = S.Add
 op2SOp Sub = S.Sub
 
-const2SConst :: Const -> S.Const
-const2SConst = S.N . unN
+lit2Integer :: Literal -> Integer
+lit2Integer = toInteger . unN
 
+lit2String :: Literal -> String
+lit2String = unS
 
 freshen :: [Name] -> Name -> Name
 freshen ns n =
@@ -73,7 +75,7 @@ openAll gp ns (Var p v) = case v of
   -- si el término es localmente cerrado
   Free x -> S.Var (gp p) x
   Global x -> S.Var (gp p) x
-openAll gp ns (Cst p c) = S.Cst (gp p) (const2SConst c)
+openAll gp ns (Lit p l) = S.Lit (gp p) (lit2Integer l)
 openAll gp ns (Lam p x ty t) =
   let x' = freshen ns x
   in S.Lam (gp p) [(x', ty2STy ty)] (openAll gp (x' : ns) (open x' t))
@@ -85,7 +87,7 @@ openAll gp ns (Fix p f fty x xty t) =
       f' = freshen (x' : ns) f
   in S.Fix (gp p) (f', ty2STy fty) [(x', ty2STy xty)] (openAll gp (x : f : ns) (open2 f' x' t))
 openAll gp ns (IfZ p c t e) = S.IfZ (gp p) (openAll gp ns c) (openAll gp ns t) (openAll gp ns e)
-openAll gp ns (Pnt p str t) = S.Pnt (gp p) str (openAll gp ns t)
+openAll gp ns (Pnt p str t) = S.Pnt (gp p) (lit2String str) (openAll gp ns t)
 openAll gp ns (BOp p op t u) = S.BOp (gp p) (op2SOp op) (openAll gp ns t) (openAll gp ns u)
 openAll gp ns (Let p v ty m n) =
   let v' = freshen ns v
@@ -135,8 +137,8 @@ ppSTy = render . sTy2Doc
 ppTy :: Ty -> String
 ppTy = ppSTy . ty2STy
 
-c2doc :: S.Const -> Doc AnsiStyle
-c2doc (S.N n) = constColor (pretty (show n))
+integer2doc :: Integer -> Doc AnsiStyle
+integer2doc n = constColor (pretty (show n))
 
 sBinary2doc :: S.BinaryOp -> Doc AnsiStyle
 sBinary2doc S.Add = opColor (pretty "+")
@@ -167,7 +169,7 @@ sTerm2Doc at (S.UOp _ _ x) = abort "unimplemented"
 sTerm2Doc at (S.LetFun _ _ _ _ x) = abort "unimplemented"
 sTerm2Doc at (S.LetRec _ _ _ _ x) = abort "unimplemented"
 sTerm2Doc at (S.If _ x) = abort "unimplemented"
-sTerm2Doc at (S.Cst _ c) = c2doc c
+sTerm2Doc at (S.Lit _ c) = integer2doc c
 sTerm2Doc at (S.Lam _ [] t) = abort "unimplemented"
 sTerm2Doc at (S.Lam _ [(v, ty)] t) =
   parenIf at $

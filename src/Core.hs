@@ -1,6 +1,9 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- |
 -- Module      : Core
@@ -17,8 +20,9 @@
 --   - Variables
 module Core where
 
-import Common (Pos( .. ) ,abort)
+import Common (Pos (..), abort)
 import Data.List.Extra (nubSort)
+import Data.String (IsString (..))
 
 typeMerge :: [Ty] -> Ty
 typeMerge [] = abort "No types to merge"
@@ -27,8 +31,17 @@ typeMerge (t : ts) = Arrow t (typeMerge ts)
 
 type Name = String
 
-newtype Const = N {unN :: Int}
+data Literal
+  = N {unN :: Int}
+  | S {unS :: String}
   deriving (Show)
+
+instance Num Literal where
+  fromInteger = N . fromInteger
+
+instance IsString Literal where
+  fromString = S
+
 
 data BinaryOp = Add | Sub
   deriving (Show)
@@ -55,10 +68,10 @@ data Ty
 --   - var es el tipo de la variables. Es 'Name' para fully named y 'Var' para locally closed.
 data Tm info var
   = Var info var
-  | Cst info Const
+  | Lit info Literal
   | Lam info Name Ty (Scope info var)
   | App info (Tm info var) (Tm info var)
-  | Pnt info String (Tm info var)
+  | Pnt info Literal (Tm info var)
   | BOp info BinaryOp (Tm info var) (Tm info var)
   | Fix info Name Ty Name Ty (Scope2 info var)
   | IfZ info (Tm info var) (Tm info var) (Tm info var)
@@ -93,7 +106,7 @@ instance (Show info, Show var) => Show (Scope2 info var) where
 -- | Obtiene la info en la raíz del término.
 getInfo :: Tm info var -> info
 getInfo (Var i _) = i
-getInfo (Cst i _) = i
+getInfo (Lit i _) = i
 getInfo (Lam i _ _ _) = i
 getInfo (App i _ _) = i
 getInfo (Pnt i _ _) = i
@@ -111,7 +124,7 @@ getPos = fst . getInfo
 -- | map para la info de un término
 mapInfo :: (a -> b) -> Tm a var -> Tm b var
 mapInfo f (Var i x) = Var (f i) x
-mapInfo f (Cst i x) = Cst (f i) x
+mapInfo f (Lit i x) = Lit (f i) x
 mapInfo f (Lam i x ty (Sc1 y)) = Lam (f i) x ty (Sc1 $ mapInfo f y)
 mapInfo f (App i x y) = App (f i) (mapInfo f x) (mapInfo f y)
 mapInfo f (Pnt i msg y) = Pnt (f i) msg (mapInfo f y)
@@ -133,5 +146,5 @@ freeVars tm = nubSort $ go tm []
     go (BOp _ _ t u) xs = go t $ go u xs
     go (Fix _ _ _ _ _ (Sc2 t)) xs = go t xs
     go (IfZ _ c t e) xs = go c $ go t $ go e xs
-    go (Cst _ _) xs = xs
+    go (Lit _ _) xs = xs
     go (Let _ _ _ e (Sc1 t)) xs = go e (go t xs)

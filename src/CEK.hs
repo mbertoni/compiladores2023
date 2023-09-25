@@ -5,11 +5,11 @@ import Core
 import Eval (semOp)
 import MonadFD4
 
-data Value = Const Const | Clos Closure
+data Value = Const Literal | Clos Closure
   deriving (Show)
 
 val2TTerm :: Value -> TTerm
-val2TTerm (Const c) = Cst (NoPos, Nat) c
+val2TTerm (Const c) = Lit (NoPos, Nat) c
 val2TTerm (Clos f) = abort "rough operator"
 
 data Closure
@@ -28,7 +28,7 @@ data Frame
   | BOpL Env BinaryOp TTerm -- (□ (+) u)
   | BOpR BinaryOp Value -- (v (+) □)
   | VarT Var
-  | PntT String -- (print s □)
+  | PntT Literal -- (print s □)
   | LetD Env Name TTerm -- let □ in term
   deriving (Show)
 
@@ -40,7 +40,7 @@ seek term env k = case term of
   App _ t u -> seek t env (AppL env u : k)
   Lam _ nm _ (Sc1 t) -> destroy (Clos (ClosFun env nm t)) k
   Fix _ f _ x _ (Sc2 t) -> destroy (Clos (ClosFix env f x t)) k
-  Cst _ c -> destroy (Const c) k
+  Lit _ c -> destroy (Const c) k
   Let _ n _ def (Sc1 t) -> seek def env (LetD env n t : k)
   Var _ (Bound b) -> abort "unimplemented" -- acá qué hay que hacer?
   Var _ (Free nm) -> abort "unimplemented" -- entiendo que acá tendríamos que fallar
@@ -62,7 +62,7 @@ destroy (Const (N _)) (IfZC env t e : k) = seek e env k
 destroy (Clos clos) (AppL env t : k) = seek t env (AppR clos : k)
 destroy v (AppR (ClosFun env x t) : k) = seek t (v : env) k
 destroy v (AppR clos@(ClosFix env f x t) : k) = seek t (Clos clos : v : env) k
-destroy v (LetD env nm body : k) = seek body (v : env) k
+destroy v (LetD env _ t : k) = seek t (v : env) k -- olvido tu nombre?
 destroy v _ = abort "its no possible Blenda"
 
 eval :: (MonadFD4 m) => TTerm -> m TTerm

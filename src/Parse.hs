@@ -88,8 +88,8 @@ tyIdentifier = Tok.lexeme lexer $ do
 -- Parsers
 -----------------------
 
-num :: P Int
-num = fromInteger <$> natural
+num :: P Integer
+num = natural
 
 var :: P Name
 var = identifier
@@ -115,8 +115,8 @@ typeP =
     )
     <|> tyatom -- TODO: Acomodar para que parsee synonyms también
 
-const :: P Const
-const = N <$> num
+literal :: P Integer
+literal = num
 
 printOp :: P Term
 printOp = do
@@ -145,7 +145,7 @@ expr = Ex.buildExpressionParser table tm
 
 atom :: P Term
 atom =
-  (flip Cst <$> const <*> getPos)
+  flip Lit <$> literal <*> getPos
     <|> flip Var <$> var <*> getPos
     <|> parens expr
     <|> printOp
@@ -159,7 +159,7 @@ binding = do
   return (v, ty)
 
 bindings :: P [(Name, Ty)]
-bindings = do many1 $ parens binding
+bindings = many1 $ parens binding
 
 lam :: P Term
 lam = do

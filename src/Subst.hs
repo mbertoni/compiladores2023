@@ -27,7 +27,7 @@ varChanger ::
 varChanger local bound term = go 0 term
   where
     go n = \case
-      Cst _ _ -> term
+      Lit _ _ -> term
       Var p (Bound i) -> bound n p i
       Var p (Free x) -> local n p x
       Var p (Global x) -> Var p (Global x)

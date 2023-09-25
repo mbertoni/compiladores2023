@@ -27,15 +27,16 @@ executable compiladores2023
   other-modules:
     CEK
     Common
+    Core
     Elab
     Errors
     Eval
     Global
-    Lang
     MonadFD4
     Parse
     PPrint
     Subst
+    Surf
     TypeChecker
 
   ghc-options:

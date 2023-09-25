@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 -- |
 -- Module      : Typechecker
 -- Description : Chequeo de tipos de términos y declaraciones.
@@ -7,8 +9,8 @@
 -- Stability   : experimental
 module TypeChecker (tc, tcDecl) where
 
+import Core
 import Global
-import Lang
 import MonadFD4
 import PPrint
 import Subst
@@ -25,21 +27,21 @@ tc ::
   -- | tipo del término
   m TTerm
 tc (Var p (Bound _)) _ =
-  failPosFD4 p "typecheck: No deberia haber variables Bound"
+  failPosFD4 p "typecheck: No debería haber variables Bound"
 tc (Var p (Free n)) bs = case lookup n bs of
   Nothing -> failPosFD4 p $ "Variable no declarada " ++ ppName n
   Just ty -> return (Var (p, ty) (Free n))
 tc (Var p (Global n)) bs = case lookup n bs of
   Nothing -> failPosFD4 p $ "Variable no declarada " ++ ppName n
   Just ty -> return (Var (p, ty) (Global n))
-tc (Cst p (CNat n)) _ = return (Cst (p, NatTy) (CNat n))
+tc (Cst p (N n)) _ = return (Cst (p, Nat) (N n))
 tc (Pnt p str t) bs = do
   tt <- tc t bs
-  expect NatTy tt
-  return (Pnt (p, NatTy) str tt)
+  expect Nat tt
+  return (Pnt (p, Nat) str tt)
 tc (IfZ p c t t') bs = do
   ttc <- tc c bs
-  expect NatTy ttc
+  expect Nat ttc
   tt <- tc t bs
   tt' <- tc t' bs
   let ty = getTy tt
@@ -47,7 +49,7 @@ tc (IfZ p c t t') bs = do
   return (IfZ (p, ty) ttc tt tt')
 tc (Lam p v ty t) bs = do
   tt <- tc (open v t) ((v, ty) : bs)
-  return (Lam (p, FunTy ty (getTy tt)) v ty (close v tt))
+  return (Lam (p, Arrow ty (getTy tt)) v ty (close v tt))
 tc (App p t u) bs = do
   tt <- tc t bs
   (dom, cod) <- domCod tt
@@ -73,45 +75,46 @@ tc (Let p v ty def t) bs = do
   return (Let (p, getTy tt) v ty tdef (close v tt))
 tc (BOp p op t u) bs = do
   tt <- tc t bs
-  expect NatTy tt
+  expect Nat tt
   tu <- tc u bs
-  expect NatTy tu
-  return (BOp (p, NatTy) op tt tu)
+  expect Nat tu
+  return (BOp (p, Nat) op tt tu)
 
 -- | @'typeError' t s@ lanza un error de tipo para el término @t@
 typeError ::
-  MonadFD4 m =>
+  (MonadFD4 m) =>
   -- | término que se está chequeando
   TTerm ->
   -- | mensaje de error
   String ->
-  m a
+  -- | no retorna, devuelve forall a
+  (forall a. m a)
 typeError t s = do
   ppt <- pp t
   failPosFD4 (getPos t) $ "Error de tipo en " ++ ppt ++ "\n" ++ s
 
 -- | 'expect' chequea que el tipo esperado sea igual al que se obtuvo
 -- y lanza un error si no lo es.
-expect :: MonadFD4 m => Ty -> TTerm -> m TTerm -- esta es la que tendríamos que modificar para no fallar con los synonyms
+expect :: (MonadFD4 m) => Ty -> TTerm -> m TTerm -- esta es la que tendríamos que modificar para no fallar con los synonyms
 expect ty tt =
   let ty' = getTy tt
-   in if ty == ty'
-        then return tt
-        else
-          typeError tt $
-            "Tipo esperado: " ++ ppTy ty ++ "\npero se obtuvo: " ++ ppTy ty'
+  in if ty == ty'
+      then return tt
+      else
+        typeError tt $
+          "Tipo esperado: " ++ ppTy ty ++ "\npero se obtuvo: " ++ ppTy ty'
 
 -- | 'domCod chequea que un tipo sea función
 -- | devuelve un par con el tipo del dominio y el co-dominio de la función
-domCod :: MonadFD4 m => TTerm -> m (Ty, Ty)
+domCod :: (MonadFD4 m) => TTerm -> m (Ty, Ty)
 domCod tt = case getTy tt of
-  FunTy d c -> return (d, c)
+  Arrow d c -> return (d, c)
   _ ->
     typeError tt $
       "Se esperaba un tipo función, pero se obtuvo: " ++ ppTy (getTy tt)
 
 -- | 'tcDecl' chequea el tipo de una declaración
-tcDecl :: MonadFD4 m => Decl Term -> m (Decl TTerm)
+tcDecl :: (MonadFD4 m) => Decl Term -> m (Decl TTerm)
 tcDecl (Decl p n t) = do
   -- chequear si el nombre ya está declarado
   mty <- lookupTypeOfGlobal n

@@ -10,7 +10,7 @@
 module Eval where
 
 import Common (abort)
-import Lang
+import Core
 import MonadFD4 (MonadFD4, failFD4, lookupDecl, printFD4)
 import PPrint (pp, ppName)
 import Subst (subst, subst2)
@@ -39,7 +39,7 @@ eval (App p l r) = do
 eval (Pnt p str t) = do
   te <- eval t
   case te of
-    Cst _ (CNat n) -> do
+    Cst _ (N n) -> do
       printFD4 (str ++ show n)
       return te
     _ -> abort "Error de tipo en runtime! : Print"
@@ -47,17 +47,17 @@ eval (BOp p op t u) = do
   te <- eval t
   ue <- eval u
   case (te, ue) of
-    (Cst _ (CNat n), Cst _ (CNat m)) ->
+    (Cst _ (N n), Cst _ (N m)) ->
       return $
-        Cst p (CNat (semOp op n m))
+        Cst p (N (semOp op n m))
     _ -> do
       pt <- pp te
       abort $ "Error de tipo en runtime!: BinaryOp " ++ pt
 eval (IfZ p c t e) = do
   ce <- eval c
   case ce of
-    Cst _ (CNat 0) -> eval t
-    Cst _ (CNat _) -> eval e
+    Cst _ (N 0) -> eval t
+    Cst _ (N _) -> eval e
     c' -> abort "Error de tipo en runtime!: IfZ"
 eval (Let _ _ _ m n) = do
   v <- eval m

@@ -43,7 +43,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Errors (Error (..))
 import Global
-import Lang
+import Core
 import System.IO
 
 {-# ANN module "HLint ignore Use <$>" #-}
@@ -116,9 +116,8 @@ lookupTypeOfGlobal nm = do
   return $ lookup nm (globalTypedEnvironment s)
 
 lookupAlias :: (MonadFD4 m) => Name -> m (Maybe Ty)
-lookupAlias nm = do
-  s <- get
-  return $ lookup nm (globalTypeContext s)
+lookupAlias nm =
+  gets $ lookup nm . globalTypeContext
 
 failPosFD4 :: (MonadFD4 m) => Pos -> String -> m a
 failPosFD4 p s = throwError (ErrPos p s)

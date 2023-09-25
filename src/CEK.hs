@@ -1,15 +1,15 @@
 module CEK (eval) where
 
 import Common
+import Core
 import Eval (semOp)
-import Lang
 import MonadFD4
 
 data Value = Const Const | Clos Closure
   deriving (Show)
 
 val2TTerm :: Value -> TTerm
-val2TTerm (Const c) = Cst (NoPos, NatTy) c
+val2TTerm (Const c) = Cst (NoPos, Nat) c
 val2TTerm (Clos f) = abort "rough operator"
 
 data Closure
@@ -50,18 +50,15 @@ seek term env k = case term of
       Nothing -> abort "No le encontramos la variable global"
       Just val -> seek val env k -- pero este val tiene tipo term, pero sabemos que es un val, y si cambiamos de modo?
 
--- seek _ env k = abort "hacer el ejercicio de la practica"
--- resta hacer el let
-
 destroy :: (MonadFD4 m) => Value -> Continuation -> m Value
 destroy v [] = return v
 destroy v (PntT str : k) = destroy v k -- Nos falta imprimir?
 destroy v (BOpL env op rt : k) = seek rt env (BOpR op v : k)
 destroy v (BOpR op lv : k) = case (lv, v) of
-  (Const (CNat l), Const (CNat r)) -> destroy (Const (CNat (semOp op l r))) k
+  (Const (N l), Const (N r)) -> destroy (Const (N (semOp op l r))) k
   _ -> abort "error de tipos runtime"
-destroy (Const (CNat 0)) (IfZC env t e : k) = seek t env k
-destroy (Const (CNat _)) (IfZC env t e : k) = seek e env k
+destroy (Const (N 0)) (IfZC env t e : k) = seek t env k
+destroy (Const (N _)) (IfZC env t e : k) = seek e env k
 destroy (Clos clos) (AppL env t : k) = seek t env (AppR clos : k)
 destroy v (AppR (ClosFun env x t) : k) = seek t (v : env) k
 destroy v (AppR clos@(ClosFix env f x t) : k) = seek t (Clos clos : v : env) k

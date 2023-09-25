@@ -1,9 +1,9 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- |
--- Module      : Lang
+-- Module      : Core
 -- Description : AST de términos, declaraciones y tipos
 -- Copyright   : (c) Mauro Jaskelioff, Guido Martínez, 2020.
 -- License     : GPL-3
@@ -15,73 +15,19 @@
 --   - Declaraciones
 --   - Tipos
 --   - Variables
-module Lang where
+module Core where
 
-import Common (Pos, abort)
+import Common (Pos( .. ) ,abort)
 import Data.List.Extra (nubSort)
-
-data SDecl a = SDecl
-  { sDeclPos :: Pos,
-    sDeclName :: Name,
-    sDeclBody :: a
-  }
-  deriving (Show, Functor)
-
-data SDeclBody
-  = STypeDecl STy
-  | STermDecl STerm
-  deriving (Show)
-
--- | Estas son las declaraciones válidas del FD4
-type SDeclaration = SDecl SDeclBody
-
--- | AST the términos superficiales
-data STm info ty var
-  = SV info var
-  | SCst info Const
-  | SLam info [(var, ty)] (STm info ty var)
-  | SApp info (STm info ty var) (STm info ty var)
-  | SPrint info String (STm info ty var)
-  | SBinaryOp info BinaryOp (STm info ty var) (STm info ty var)
-  | SUnaryOp info UnaryOp (STm info ty var)
-  | SFix info (var, ty) [(var, ty)] (STm info ty var)
-  | SIfZ info (STm info ty var) (STm info ty var) (STm info ty var)
-  | SIf info [(STm info ty var, STm info ty var)]
-  | SLet info (var, ty) (STm info ty var) (STm info ty var)
-  | SLetRec info (var, ty) [(var, ty)] (STm info ty var) (STm info ty var)
-  | SLetFun info (var, ty) [(var, ty)] (STm info ty var) (STm info ty var)
-  deriving (Show, Functor)
-
--- | AST de Tipos
-data Ty
-  = NatTy
-  | FunTy Ty Ty
-  deriving (Show, Eq)
-
-data STy
-  = SNatTy
-  | SFunTy STy STy
-  | SVar Name
-  deriving (Show, Eq)
-
-sTyFold :: [STy] -> STy
-sTyFold = foldr1 SFunTy
 
 typeMerge :: [Ty] -> Ty
 typeMerge [] = abort "No types to merge"
 typeMerge [t] = t
-typeMerge (t : ts) = FunTy t (typeMerge ts)
+typeMerge (t : ts) = Arrow t (typeMerge ts)
 
 type Name = String
 
-type STerm =
-  -- | 'STm' tiene 'Name's como variables ligadas y libres y globales, guarda posición
-  STm Pos STy Name
-
-newtype Const = CNat Int
-  deriving (Show)
-
-data UnaryOp = Bang
+newtype Const = N {unN :: Int}
   deriving (Show)
 
 data BinaryOp = Add | Sub
@@ -93,7 +39,15 @@ data Decl a = Decl
     declName :: Name,
     declBody :: a
   }
-  deriving (Show, Functor)
+  deriving (Show)
+
+-- deriving instance Show Pos -- TODO mmmm.. no entiendo
+
+-- | AST de Tipos
+data Ty
+  = Nat
+  | Arrow Ty Ty
+  deriving (Show, Eq)
 
 -- | AST de los términos.
 --   - info es información extra que puede llevar cada nodo.
@@ -111,13 +65,11 @@ data Tm info var
   | Let info Name Ty (Tm info var) (Scope info var)
   deriving (Show, Functor)
 
-type Term =
-  -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición
-  Tm Pos Var
+-- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición
+type Term = Tm Pos Var
 
-type TTerm =
-  -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición y tipo
-  Tm (Pos, Ty) Var
+-- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición y tipo
+type TTerm = Tm (Pos, Ty) Var
 
 data Var
   = Bound !Int
@@ -126,10 +78,10 @@ data Var
   deriving (Show)
 
 -- Scope es un término con una o dos variables que escapan.
-newtype Scope info var = Sc1 (Tm info var)
+newtype Scope info var = Sc1 {unSc1 :: Tm info var}
   deriving (Functor)
 
-newtype Scope2 info var = Sc2 (Tm info var)
+newtype Scope2 info var = Sc2 {unSc2 :: Tm info var}
   deriving (Functor)
 
 instance (Show info, Show var) => Show (Scope info var) where

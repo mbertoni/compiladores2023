@@ -18,6 +18,7 @@ import Common (abort)
 import Control.Exception (IOException, catch)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.Trans
+import qualified Core as C
 import Data.Char (isSpace)
 import Data.List (intercalate, isPrefixOf, nub)
 import Data.Maybe (fromMaybe)
@@ -25,11 +26,11 @@ import Elab (elabDeclaration, elabTerm)
 import Errors
 import Eval (eval)
 import Global
-import Lang
 import MonadFD4
 import Options.Applicative
 import PPrint (pp, ppTermDecl, ppTy, ppTypeDecl)
 import Parse (P, declOrTm, program, runP, tm)
+import qualified Surf as S
 import System.Console.Haskeline
   ( InputT,
     defaultSettings,
@@ -132,7 +133,7 @@ repl args = do
           b <- lift $ catchErrors $ handleCommand c
           maybe loop (`when` loop) b
 
-loadFile :: (MonadFD4 m) => FilePath -> m [SDeclaration]
+loadFile :: (MonadFD4 m) => FilePath -> m [S.Declaration]
 loadFile f = do
   let filename = reverse (dropWhile isSpace (reverse f))
   x <-
@@ -163,52 +164,52 @@ parseIO filename p x = case runP p x filename of
   Left e -> throwError (ParseErr e)
   Right r -> return r
 
-evalDecl :: (MonadFD4 m) => Decl TTerm -> m (Decl TTerm)
-evalDecl (Decl p x e) = do
+evalDecl :: (MonadFD4 m) => C.Decl C.TTerm -> m (C.Decl C.TTerm)
+evalDecl (C.Decl p x e) = do
   e' <- eval e
-  return (Decl p x e')
+  return (C.Decl p x e')
 
-handleDeclaration :: (MonadFD4 m) => SDeclaration -> m ()
+handleDeclaration :: (MonadFD4 m) => S.Declaration -> m ()
 handleDeclaration d = do
   m <- getMode
   s <- get
   case m of
     _ -> case elabDeclaration (globalTypeContext s) d of
-      Decl p x (Left term) -> do
-        tt <- tcDecl (Decl p x term)
-        te <- CEK.eval (declBody tt)
-        addTermDecl (Decl p x te)
-      Decl p x (Right ty) -> do
-        addTypeDecl (Decl p x ty)
+      C.Decl p x (Left term) -> do
+        tt <- tcDecl (C.Decl p x term)
+        te <- CEK.eval (C.declBody tt)
+        addTermDecl (C.Decl p x te)
+      C.Decl p x (Right ty) -> do
+        addTypeDecl (C.Decl p x ty)
     Interactive -> case elabDeclaration (globalTypeContext s) d of
-      Decl p x (Left term) -> do
-        tt <- tcDecl (Decl p x term)
-        te <- CEK.eval (declBody tt)
-        addTermDecl (Decl p x te)
-      Decl p x (Right ty) -> do
-        addTypeDecl (Decl p x ty)
+      C.Decl p x (Left term) -> do
+        tt <- tcDecl (C.Decl p x term)
+        te <- CEK.eval (C.declBody tt)
+        addTermDecl (C.Decl p x te)
+      C.Decl p x (Right ty) -> do
+        addTypeDecl (C.Decl p x ty)
     Typecheck -> do
       f <- getLastFile
       printFD4 ("Chequeando tipos de " ++ f)
       case elabDeclaration (globalTypeContext s) d of
-        Decl p x (Left term) -> do
-          tt <- tcDecl (Decl p x term)
+        C.Decl p x (Left term) -> do
+          tt <- tcDecl (C.Decl p x term)
           addTermDecl tt
           ppterm <- ppTermDecl tt
           printFD4 ppterm
-        Decl p x (Right ty) -> do
-          addTypeDecl (Decl p x ty)
-          ppty <- ppTypeDecl (Decl p x ty)
+        C.Decl p x (Right ty) -> do
+          addTypeDecl (C.Decl p x ty)
+          ppty <- ppTypeDecl (C.Decl p x ty)
           printFD4 ppty
     -- opt <- getOpt
     -- td' <- if opt then optimize td else td
     Eval -> case elabDeclaration (globalTypeContext s) d of
-      Decl p x (Left term) -> do
-        tt <- tcDecl (Decl p x term)
-        te <- eval (declBody tt)
-        addTermDecl (Decl p x te)
-      Decl p x (Right ty) -> do
-        addTypeDecl (Decl p x ty)
+      C.Decl p x (Left term) -> do
+        tt <- tcDecl (C.Decl p x term)
+        te <- eval (C.declBody tt)
+        addTermDecl (C.Decl p x te)
+      C.Decl p x (Right ty) -> do
+        addTypeDecl (C.Decl p x ty)
 
 -- do
 -- td <- typecheckDecl d
@@ -292,7 +293,7 @@ helpTxt cs =
       ( map
           ( \(Cmd c a _ d) ->
               let ct = intercalate ", " (map (++ if null a then "" else " " ++ a) c)
-               in ct ++ replicate ((24 - length ct) `max` 2) ' ' ++ d
+              in ct ++ replicate ((24 - length ct) `max` 2) ' ' ++ d
           )
           cs
       )
@@ -307,7 +308,7 @@ handleCommand cmd = do
     Noop -> return True
     Help -> printFD4 (helpTxt commands) >> return True
     Browse -> do
-      printFD4 (unlines (reverse (nub (map declName termEnvironment))))
+      printFD4 (unlines (reverse (nub (map C.declName termEnvironment))))
       return True
     Compile c -> do
       case c of
@@ -326,14 +327,14 @@ compilePhrase x = do
     Left d -> handleDeclaration d
     Right t -> handleTerm t
 
-handleTerm :: (MonadFD4 m) => STerm -> m ()
+handleTerm :: (MonadFD4 m) => S.Term -> m ()
 handleTerm t = do
   s <- get
   let t' = elabTerm (globalTypeContext s) t
   tt <- tc t' (globalTypedEnvironment s)
   te <- eval tt
   ppte <- pp te
-  printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
+  printFD4 (ppte ++ " : " ++ ppTy (C.getTy tt))
 
 printPhrase :: (MonadFD4 m) => String -> m ()
 printPhrase x = do
@@ -343,7 +344,7 @@ printPhrase x = do
   tyenv <- gets globalTypedEnvironment
   tex <- tc ex tyenv
   t <- case x' of
-    (SV p f) -> fromMaybe tex <$> lookupDecl f
+    (S.Var p f) -> fromMaybe tex <$> lookupDecl f
     _ -> return tex
   printFD4 "STerm:"
   printFD4 (show x')
@@ -356,5 +357,5 @@ typeCheckPhrase x = do
   s <- get
   let t' = elabTerm (globalTypeContext s) t
   tt <- tc t' (globalTypedEnvironment s)
-  let ty = getTy tt
+  let ty = C.getTy tt
   printFD4 (ppTy ty)

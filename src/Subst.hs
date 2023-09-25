@@ -15,7 +15,7 @@
 module Subst where
 
 import Common
-import Lang
+import Core
 
 -- Esta es una función auxiliar que usan el resto de las funciones de este módulo
 -- para modificar las variables (ligadas y libres) de un término

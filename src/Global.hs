@@ -9,7 +9,7 @@
 -- Stability   : experimental
 module Global where
 
-import Lang
+import Core
 
 data GlEnv = GlEnv
   { -- | True, si estamos en modo interactivo.

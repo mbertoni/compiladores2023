@@ -14,69 +14,81 @@
 module Elab (elabDeclaration, elabTerm) where
 
 import Common (abort)
+import Core
 import Data.Maybe
-import Lang
 import Subst
+import qualified Surf as S
 
 -- | 'go transforma variables ligadas en índices de de Bruijn
 -- en un término dado.
-elabTerm :: [(Name, Ty)] -> STerm -> Term
+elabTerm :: [(Name, Ty)] -> S.Term -> Term
 elabTerm types = go []
   where
-    go' :: STy -> Ty
+    go' :: S.Ty -> Ty
     go' = elabType types
 
-    go :: [Name] -> STerm -> Term
+    go :: [Name] -> S.Term -> Term
     go env = \case
-      SV p v ->
+      S.Var p v ->
         -- Tenemos que ver si la variable es Global o es un nombre local
         -- En env llevamos la lista de nombres locales.
         if v `elem` env
           then Var p (Free v)
           else Var p (Global v)
-      SCst p c -> Cst p c
-      SLam p [] t -> abort "Empty lambda binding list"
-      SLam p [(v, ty)] t -> Lam p v (go' ty) (close v (go (v : env) t))
-      SLam p ((v, ty) : bs) t ->
-        Lam p v (go' ty) (close v (go (v : env) (SLam p bs t)))
-      SFix i (f, fty) [] t -> abort "Empty fix binding list"
-      SFix i (f, fty) [(x, xty)] t ->
+      S.Cst p c ->
+        Cst p (elabConst c)
+      S.Lam p [] t -> abort "Empty lambda binding list"
+      S.Lam p [(v, ty)] t ->
+        Lam p v (go' ty) (close v (go (v : env) t))
+      S.Lam p ((v, ty) : bs) t ->
+        Lam p v (go' ty) (close v (go (v : env) (S.Lam p bs t)))
+      S.Fix i (f, fty) [] t -> abort "Empty fix binding list"
+      S.Fix i (f, fty) [(x, xty)] t ->
         Fix i f (go' fty) x (go' xty) (close2 f x (go (x : f : env) t))
-      SFix i (f, fty) ((x, xty) : bs) t ->
-        Fix i f (go' fty) x (go' xty) (close2 f x (go (x : f : env) (SLam i bs t)))
-      SIfZ p c t e -> IfZ p (go env c) (go env t) (go env e)
+      S.Fix i (f, fty) ((x, xty) : bs) t ->
+        Fix i f (go' fty) x (go' xty) (close2 f x (go (x : f : env) (S.Lam i bs t)))
+      S.IfZ p c t e -> IfZ p (go env c) (go env t) (go env e)
       -- des hardcodear el Bang
-      SLetFun i (fn, ty) bs t t' ->
-        go env (SLet i (fn, funTy) (SLam i bs t) t')
+      S.LetFun i (fn, ty) bs t t' ->
+        go env (S.Let i (fn, funTy) (S.Lam i bs t) t')
         where
-          funTy = sTyFold (map snd bs ++ [ty])
-      SUnaryOp i Bang t ->
-        IfZ i (go env t) (Cst i (CNat 1)) (Cst i (CNat 0))
-      SIf i _ -> abort "unimplemented"
+          funTy = S.tyFold (map snd bs ++ [ty])
+      S.UOp i S.Bang t ->
+        IfZ i (go env t) (Cst i (N 1)) (Cst i (N 0))
+      S.If i _ -> abort "unimplemented"
       -- Operadores binarios
-      SBinaryOp i o t u -> BOp i o (go env t) (go env u)
+      S.BOp i o t u -> BOp i (elabBOp o) (go env t) (go env u)
       -- Operador Print
-      SPrint i str t -> Pnt i str (go env t)
+      S.Pnt i str t -> Pnt i str (go env t)
       -- Aplicaciones generales
-      SApp p h a -> App p (go env h) (go env a)
-      SLet p (v, vty) def body ->
+      S.App p h a -> App p (go env h) (go env a)
+      S.Let p (v, vty) def body ->
         Let p v (go' vty) (go env def) (close v (go (v : env) body))
-      SLetRec i (f, ty) [] t t' -> abort "Empty let rec list"
-      SLetRec i (f, ty) (b : bs) t t' ->
-        go env (SLet i (f, funTy) (SFix i (f, funTy) (b : bs) t) t')
+      S.LetRec i (f, ty) [] t t' -> abort "Empty let rec list"
+      S.LetRec i (f, ty) (b : bs) t t' ->
+        go env (S.Let i (f, funTy) (S.Fix i (f, funTy) (b : bs) t) t')
         where
-          funTy = sTyFold (map snd (b : bs) ++ [ty])
+          funTy = S.tyFold (map snd (b : bs) ++ [ty])
 
-elabType :: [(Name, Ty)] -> STy -> Ty
+elabType :: [(Name, Ty)] -> S.Ty -> Ty
 elabType types = \case
-  SNatTy -> NatTy
-  SFunTy t t' -> FunTy (elabType types t) (elabType types t')
-  SVar n -> fromMaybe (abort "alias no definido") (lookup n types)
+  S.Nat -> Nat
+  S.Arrow t t' -> Arrow (elabType types t) (elabType types t')
+  S.Alias n -> fromMaybe (abort "alias no definido") (lookup n types)
 
-elabDeclaration :: [(Name, Ty)] -> SDeclaration -> Decl (Either Term Ty)
+elabConst :: S.Const -> Const
+elabConst = N . S.unN
+
+elabBOp :: S.BinaryOp -> BinaryOp
+elabBOp S.Add = Add
+elabBOp S.Sub = Sub
+
+elabDeclaration :: [(Name, Ty)] -> S.Declaration -> Decl (Either Term Ty)
 elabDeclaration types decl =
-  Decl {declName = sDeclName decl, declPos = sDeclPos decl, declBody = body}
+  Decl {declName = S.declName decl, declPos = S.declPos decl, declBody = body}
   where
-    body = case sDeclBody decl of
-      STermDecl sTerm -> Left $ elabTerm types sTerm
-      STypeDecl sType -> Right $ elabType types sType
+    body = case S.declBody decl of
+      S.TermDecl sTerm -> Left $ elabTerm types sTerm
+      S.TypeDecl sType -> Right $ elabType types sType
+
+

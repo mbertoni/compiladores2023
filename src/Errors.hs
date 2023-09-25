@@ -7,7 +7,7 @@
 -- Stability   : experimental
 module Errors where
 
-import Common (Pos)
+import Common
 import Text.Parsec.Error (ParseError)
 
 -- Agregar más, y source positions

@@ -1,6 +1,6 @@
 # Options should imitate Ormolu's style
 indentation: 2
-column-limit: none
+column-limit: 80 # debería ser 72
 function-arrows: trailing
 comma-style: trailing
 import-export-style: trailing
@@ -11,7 +11,7 @@ haddock-style: single-line
 haddock-style-module: null
 let-style: inline
 in-style: no-space # para que no quede "a mitad de tab"
-single-constraint-parens: always
+single-constraint-parens: never # si no son necesarios...
 unicode: never
 respectful: false
 fixities: []

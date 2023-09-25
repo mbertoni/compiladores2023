@@ -23,6 +23,7 @@ module Core where
 import Common (Pos (..), abort)
 import Data.List.Extra (nubSort)
 import Data.String (IsString (..))
+import Data.Default
 
 typeMerge :: [Ty] -> Ty
 typeMerge [] = abort "No types to merge"
@@ -35,13 +36,6 @@ data Literal
   = N {unN :: Int}
   | S {unS :: String}
   deriving (Show)
-
-instance Num Literal where
-  fromInteger = N . fromInteger
-
-instance IsString Literal where
-  fromString = S
-
 
 data BinaryOp = Add | Sub
   deriving (Show)
@@ -103,6 +97,19 @@ instance (Show info, Show var) => Show (Scope info var) where
 instance (Show info, Show var) => Show (Scope2 info var) where
   show (Sc2 t) = "{{" ++ show t ++ "}}"
 
+-- Instancias para abreviar cuando depuramos
+instance Num Literal where
+  fromInteger = N . fromInteger
+
+instance Default a => Num (Tm a b) where
+  fromInteger = Lit def . fromInteger
+
+instance IsString Literal where
+  fromString = S
+
+instance Default a => IsString (Tm a b) where
+  fromString = Lit def . fromString
+
 -- | Obtiene la info en la raíz del término.
 getInfo :: Tm info var -> info
 getInfo (Var i _) = i
@@ -148,3 +155,6 @@ freeVars tm = nubSort $ go tm []
     go (IfZ _ c t e) xs = go c $ go t $ go e xs
     go (Lit _ _) xs = xs
     go (Let _ _ _ e (Sc1 t)) xs = go e (go t xs)
+
+
+

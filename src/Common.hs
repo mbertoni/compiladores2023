@@ -7,6 +7,8 @@
 -- Stability   : experimental
 module Common where
 
+import Data.Default
+
 --------------------------
 -- Posición en un archivo
 --------------------------
@@ -30,6 +32,9 @@ instance Monoid Pos where
 instance Show Pos where
   show (Pos line column) = "(" ++ show line ++ "," ++ show column ++ ")"
   show NoPos = ""
+
+instance Default Pos where
+  def = NoPos
 
 ---------------------
 -- Utility functions

@@ -9,7 +9,7 @@
 -- License     : GPL-3
 -- Maintainer  : mauro@fceia.unr.edu.ar
 -- Stability   : experimental
-module Parse (tm, Parse.parse, Decl, runP, P, program, declOrTm) where
+module Parse (term, Parse.parse, runP, P, program, declarationOrTerm) where
 
 import Common
 -- import Data.Char ( isNumber, ord )
@@ -17,6 +17,7 @@ import Common
 -- ( GenLanguageDef(..), emptyDef )
 
 import Control.Monad.Identity (Identity)
+import Data.Type.Equality (TestEquality)
 import Surf
 import Text.Parsec hiding (parse, runP)
 import Text.Parsec.Expr (Assoc, Operator)
@@ -63,14 +64,14 @@ whiteSpace = Tok.whiteSpace lexer
 natural :: P Integer
 natural = Tok.natural lexer
 
+numLiteral :: P Integer
+numLiteral = natural
+
 stringLiteral :: P String
 stringLiteral = Tok.stringLiteral lexer
 
 parens :: P a -> P a
 parens = Tok.parens lexer
-
-identifier :: P String
-identifier = Tok.identifier lexer
 
 reserved :: String -> P ()
 reserved = Tok.reserved lexer
@@ -78,8 +79,17 @@ reserved = Tok.reserved lexer
 reservedOp :: String -> P ()
 reservedOp = Tok.reservedOp lexer
 
-tyIdentifier :: P String
-tyIdentifier = Tok.lexeme lexer $ do
+-- identifier :: P Ident
+-- identifier = Tok.identifier lexer
+
+varIdent :: P Ident
+varIdent = Tok.lexeme lexer $ do
+  c <- lower
+  cs <- many (identLetter langDef)
+  return (c : cs)
+
+tyIdent :: P Ident
+tyIdent = Tok.lexeme lexer $ do
   c <- upper
   cs <- many (identLetter langDef)
   return (c : cs)
@@ -88,198 +98,235 @@ tyIdentifier = Tok.lexeme lexer $ do
 -- Parsers
 -----------------------
 
-num :: P Integer
-num = natural
-
-var :: P Name
-var = identifier
-
 getPos :: P Pos
 getPos = do
   pos <- getPosition
   return $ Pos (sourceLine pos) (sourceColumn pos)
 
-tyatom :: P Ty
-tyatom =
-  (reserved "Nat" >> return Nat)
-    <|> parens typeP
+-- ident :: P Ident
+-- ident = identifier
 
-typeP :: P Ty
-typeP =
-  try
-    ( do
-        x <- tyatom
-        reservedOp "->"
-        y <- typeP
-        return (Arrow x y)
-    )
-    <|> tyatom -- TODO: Acomodar para que parsee synonyms también
+literal :: P Literal
+literal = n <|> s
+  where
+    n = N <$> numLiteral
+    s = S <$> stringLiteral
 
-literal :: P Integer
-literal = num
-
-printOp :: P Term
-printOp = do
-  i <- getPos
-  reserved "print"
-  str <- option "" stringLiteral
-  a <- atom
-  return (Pnt i str a)
-
-unary :: String -> UnaryOp -> Operator String () Identity Term
-unary s f = Ex.Prefix (reservedOp s >> return (UOp NoPos f))
-
-binary :: String -> BinaryOp -> Assoc -> Operator String () Identity Term
-binary s f = Ex.Infix (reservedOp s >> return (BOp NoPos f))
-
-table :: [[Operator String () Identity Term]]
-table =
-  [ [unary "!" Bang],
-    [ binary "+" Add Ex.AssocLeft,
-      binary "-" Sub Ex.AssocLeft
-    ]
-  ]
-
-expr :: P Term
-expr = Ex.buildExpressionParser table tm
-
-atom :: P Term
-atom =
-  flip Lit <$> literal <*> getPos
-    <|> flip Var <$> var <*> getPos
-    <|> parens expr
-    <|> printOp
-
--- parsea un par (variable : tipo)
-binding :: P (Name, Ty)
-binding = do
-  v <- var
+binder :: P Binder
+binder = parens $ do
+  is <- many1 varIdent
   reservedOp ":"
-  ty <- typeP
-  return (v, ty)
+  t <- ty
+  return (is, t)
 
-bindings :: P [(Name, Ty)]
-bindings = many1 $ parens binding
+binders :: P [Binder]
+binders = many1 $ parens binder
 
+ty :: P Ty
+ty = alias <|> arrow <|> nat <|> parTy
+  where
+    nat :: P Ty
+    nat = reserved "Nat" >> return Nat
 
-lam :: P Term
-lam = do
-  i <- getPos
-  reserved "fun"
-  mb <- bindings
-  reservedOp "->"
-  t <- expr
-  return (Lam i mb t)
+    alias :: P Ty
+    alias = Alias <$> tyIdent
 
--- Nota el parser app también parsea un solo atom.
-app :: P Term
-app = do
-  i <- getPos
-  f <- atom
-  args <- many atom
-  return (foldl (App i) f args)
+    parTy :: P Ty
+    parTy = ParTy <$> parens ty
 
-ifz :: P Term
-ifz = do
-  i <- getPos
-  reserved "ifz"
-  c <- expr
-  reserved "then"
-  t <- expr
-  reserved "else"
-  e <- expr
-  return (IfZ i c t e)
+    arrow :: P Ty
+    arrow = do
+      x <- ty
+      reservedOp "->"
+      y <- ty
+      return (Arrow x y)
 
-if_ :: P Term
-if_ = do return (abort "TODO")
+term :: P Term
+term = Ex.buildExpressionParser opTable term'
+  where
+    term' = app <|> lam <|> ifz <|> pnt <|> fix <|> let_
 
-fix :: P Term
-fix = do
-  i <- getPos
-  reserved "fix"
-  (f, fty) <- parens binding
-  bs <- bindings
-  reservedOp "->"
-  t <- expr
-  return (Fix i (f, fty) bs t)
+    opTable :: [[Operator String () Identity Term]]
+    opTable =
+      [ [unary "!" Bang],
+        [ binary "+" Add Ex.AssocLeft,
+          binary "-" Sub Ex.AssocLeft
+        ]
+      ]
+      where
+        unary :: String -> UnaryOp -> Operator String () Identity Term
+        unary s op = Ex.Prefix $ reservedOp s >> return (T . UOp op)
 
--- fixSugar :: P STerm
--- fixSugar = do i <- getPos
+        binary :: String -> BinaryOp -> Assoc -> Operator String () Identity Term
+        binary s op = Ex.Infix $ reservedOp s >> return (\l r -> T (BOp op l r))
 
-letfun :: P Term
-letfun = do
-  i <- getPos
-  reserved "let"
-  f <- var
-  bs <- bindings
-  reservedOp ":"
-  ty <- typeP -- tau
-  reservedOp "="
-  def <- expr
-  reserved "in"
-  body <- expr
-  return (LetFun i (f, ty) bs def body)
+    pnt :: P Term
+    pnt = do
+      _ <- getPos
+      reserved "print"
+      str <- option "" stringLiteral
+      a <- atom
+      return $ T (Pnt str a)
 
-letexp :: P Term
-letexp = do
-  i <- getPos
-  reserved "let"
-  b <- binding <|> parens binding
-  reservedOp "="
-  def <- expr
-  reserved "in"
-  body <- expr
-  return (Let i b def body)
+    atom :: P Term
+    atom =
+      T . Lit <$> literal -- <*> getPos
+        <|> T . Var <$> varIdent -- <*> getPos
+        <|> parens term
+        <|> pnt
 
-letrec :: P Term
-letrec = do
-  i <- getPos
-  reserved "let"
-  reserved "rec"
-  f <- var
-  (b : bs) <- bindings
-  reservedOp ":"
-  ty <- typeP
-  reservedOp "="
-  def <- expr
-  reserved "in"
-  body <- expr
-  return (LetRec i (f, ty) (b : bs) def body)
+    -- Nota el parser app también parsea un solo atom.
+    app :: P Term
+    app = do
+      _ <- getPos
+      f <- atom
+      args <- many atom
+      return (foldl (\t u -> T $ App t u) f args)
 
--- | Parser de términos
-tm :: P Term
-tm = app <|> lam <|> ifz <|> printOp <|> fix <|> try letexp <|> try letrec <|> letfun
+    lam :: P Term
+    lam = do
+      _ <- getPos
+      reserved "fun"
+      bs <- binders
+      reservedOp "->"
+      t <- term
+      return (T (Lam bs t))
+
+    ifz :: P Term
+    ifz = do
+      _ <- getPos
+      reserved "ifz"
+      c <- term
+      reserved "then"
+      t <- term
+      reserved "else"
+      e <- term
+      return (T (IfZ c t e))
+
+    fix :: P Term
+    fix = do
+      _ <- getPos
+      reserved "fix"
+      f <- binder
+      x <- binder
+      bs <- binders
+      reservedOp "->"
+      t <- term
+      return (T (Fix f x bs t))
+
+    let_ :: P Term
+    let_ = core <|> nRec <|> rec_
+      where
+        core :: P Term
+        core = do
+          _ <- getPos
+          reserved "let"
+          (x, tau) <- parens $ do
+            i <- varIdent
+            reservedOp ":"
+            tau <- ty
+            return (i, tau)
+          reservedOp "="
+          t <- term
+          reserved "in"
+          t' <- term
+          return (T (Let P x NRec [] tau t t'))
+
+        nRec :: P Term
+        nRec = do
+          _ <- getPos
+          reserved "let"
+          f <- varIdent
+          bs <- binders
+          reservedOp ":"
+          tau <- ty
+          reservedOp "="
+          t <- term
+          reserved "in"
+          t' <- term
+          return (T (Let NP f NRec bs tau t t'))
+
+        rec_ :: P Term
+        rec_ = do
+          _ <- getPos
+          reserved "let"
+          reserved "rec"
+          f <- varIdent
+          x <- binder
+          bs <- binders
+          reservedOp ":"
+          tau <- ty
+          reservedOp "="
+          t <- term
+          reserved "in"
+          t' <- term
+          return (T (Let NP f (Rec x) bs tau t t'))
 
 -- | Parser de declaraciones
-termDecl :: P Declaration
-termDecl = do
-  i <- getPos
-  reserved "let"
-  v <- var
-  reservedOp "="
-  t <- expr
-  return $ Decl i v $ TermDecl t
+declaration :: P Declaration
+declaration = letDecl <|> typeDecl
+  where
+    typeDecl :: P Declaration
+    typeDecl = do
+      _ <- getPos
+      reserved "type"
+      i <- tyIdent
+      reservedOp "="
+      t <- ty
+      return $ TypeDecl i t
 
-typeDecl :: P Declaration
-typeDecl = do
-  i <- getPos
-  reserved "type"
-  synonym <- var
-  reservedOp "="
-  realType <- typeP
-  return $ Decl i synonym $ TypeDecl realType
+    letDecl :: P Declaration
+    letDecl = core <|> nRec <|> rec_
+      where
+        core :: P Declaration
+        core = do
+          _ <- getPos
+          reserved "let"
+          (x, tau) <- parens $ do
+            i <- varIdent
+            reservedOp ":"
+            tau <- ty
+            return (i, tau)
+          reservedOp "="
+          t <- term
+          return (LetDecl P x NRec [] tau t)
 
-decl :: P Declaration
-decl = termDecl <|> typeDecl
+        nRec :: P Declaration
+        nRec = do
+          _ <- getPos
+          reserved "let"
+          f <- varIdent
+          bs <- binders
+          reservedOp ":"
+          tau <- ty
+          reservedOp "="
+          t <- term
+          return (LetDecl NP f NRec bs tau t)
+
+        rec_ :: P Declaration
+        rec_ = do
+          _ <- getPos
+          reserved "let"
+          reserved "rec"
+          f <- varIdent
+          x <- binder
+          bs <- binders
+          reservedOp ":"
+          tau <- ty
+          reservedOp "="
+          t <- term
+          return (LetDecl NP f (Rec x) bs tau t)
 
 -- | Parser de programas (listas de declaraciones)
 program :: P [Declaration]
-program = many decl
+program = many declaration
 
 -- | Parsea una declaración a un término
 -- Útil para las sesiones interactivas
-declOrTm :: P (Either Declaration Term)
-declOrTm = try (Left <$> decl) <|> (Right <$> expr)
+declarationOrTerm :: P (Either Declaration Term)
+declarationOrTerm =
+  Left <$> declaration
+    <|> Right <$> term
 
 -- Corre un parser, chequeando que se pueda consumir toda la entrada
 runP :: P a -> String -> String -> Either ParseError a
@@ -287,6 +334,6 @@ runP p s filename = runParser (whiteSpace *> p <* eof) () filename s
 
 -- para debugging en uso interactivo (ghci)
 parse :: String -> Term
-parse s = case runP expr s "" of
+parse s = case runP term s "" of
   Right t -> t
   Left e -> error ("no parse: " ++ show s)

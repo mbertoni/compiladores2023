@@ -1,10 +1,10 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
-{-# LANGUAGE DeriveAnyClass #-}
 
 module Surf where
 
@@ -21,10 +21,10 @@ data UnaryOp = Bang
 data BinaryOp = Add | Sub
   deriving (Show)
 
-data Rec binder = Rec binder | NoRec
+data Rec binder = Rec binder | NRec
   deriving (Show)
 
-data Par = P | NoP
+data Par = P | NP
   deriving (Eq, Show)
 
 type Bind symbol referent = ([symbol], referent)
@@ -44,13 +44,12 @@ data Tm ident binder ty term
   | BOp BinaryOp term term
   | IfZ term term term
   | App term term
-  | Lam [binder] ty term
-  | Fix binder binder [binder] ty term
+  | Lam [binder] term
+  | Fix binder binder [binder] term
   | Let Par ident (Rec binder) [binder] ty term term
   -- falta ver el comentario en ss.pdf del print parcialmente aplicado
-  deriving (Show, Functor)
+  deriving (Show, Functor, Applicative, Monad)
 
--- me lleva el chango, en ocaml
 type Binder = Bind Ident Ty
 
 newtype Term = T {unT :: Tm Ident Binder Ty Term}

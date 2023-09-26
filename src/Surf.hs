@@ -3,26 +3,16 @@
 {-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LiberalTypeSynonyms #-}
 
 module Surf where
+
 import Common (Pos)
 
-type Name = String
+type Ident = String
 
-data Decl a = Decl
-  { pos :: Pos,
-    name :: Name,
-    body :: a
-  }
-  deriving (Show, Functor)
-
-data DeclBody
-  = TypeDecl Ty
-  | TermDecl Term
+data Literal = N Int | S String
   deriving (Show)
-
--- | Estas son las declaraciones válidas del FD4
-type Declaration = Decl DeclBody
 
 data UnaryOp = Bang
   deriving (Show)
@@ -30,41 +20,44 @@ data UnaryOp = Bang
 data BinaryOp = Add | Sub
   deriving (Show)
 
-data Rec = Rec | NoRec
+data Rec binder = Rec binder | NoRec
+  deriving (Show)
 
-type Binding var ty = (var, ty) -- ([var], ty) para multi-binder
+data Par = Par | NoPar
+  deriving (Show)
 
-type Bindings var ty = [Binding var ty]
+type Bind symbol referent = ([symbol], referent)
 
-{-
-(1 + 2) * 3
+data Decl ident binder ty term
+  = TypeDecl ident ty
+  | LetDecl Par ident (Rec binder) [binder] ty term
+  deriving (Show)
 
-MUL (ADD (1, 2), 3)
--}
-  -- | AST the términos superficiales
-data Tm info ty var
-  =
-  Var info var
-  | Lit info Integer
-  | Lam info (Bindings var ty) (Tm info ty var)
-  | App info (Tm info ty var) (Tm info ty var)
-  | Pnt info String (Tm info ty var)
-  | BOp info BinaryOp (Tm info ty var) (Tm info ty var)
-  | UOp info UnaryOp (Tm info ty var)
-  | Fix info (var, ty) [(var, ty)] (Tm info ty var)
-  | IfZ info (Tm info ty var) (Tm info ty var) (Tm info ty var)
-  | If info [(Tm info ty var, Tm info ty var)]
-  | Let info (var, ty) (Tm info ty var) (Tm info ty var)
-  | LetRec info (var, ty) [(var, ty)] (Tm info ty var) (Tm info ty var)
-  | LetFun info (var, ty) [(var, ty)] (Tm info ty var) (Tm info ty var)
+-- \| AST the términos superficiales
+data Tm ident binder ty term
+  = Var ident
+  | Lit Literal
+  | Pnt String term
+  | UOp UnaryOp term
+  | BOp BinaryOp term term
+  | IfZ term term term
+  | App term term
+  | Lam [binder] ty term
+  | Fix binder binder [binder] ty term
+  | Let Par ident (Rec binder) [binder] ty term term
   deriving (Show, Functor)
 
-type Term = Tm Pos Ty Name
+-- me lleva el chango, en ocaml
+type Binder = Bind Ident Ty
+
+newtype Term = T {unT :: Tm Ident Binder Ty Term}
+
+type Declaration = Decl Ident Binder Ty Term
 
 data Ty
   = Nat
   | Arrow Ty Ty
-  | Alias Name
+  | Alias Ident
   deriving (Show, Eq)
 
 tyFold :: [Ty] -> Ty

@@ -30,11 +30,18 @@ data UnaryOp = Bang
 data BinaryOp = Add | Sub
   deriving (Show)
 
-type Binding from to = (from, to)
+data Rec = Rec | NoRec
 
-type Bindings from to = [Binding from to]
+type Binding var ty = (var, ty) -- ([var], ty) para multi-binder
 
--- | AST the términos superficiales
+type Bindings var ty = [Binding var ty]
+
+{-
+(1 + 2) * 3
+
+MUL (ADD (1, 2), 3)
+-}
+  -- | AST the términos superficiales
 data Tm info ty var
   =
   Var info var

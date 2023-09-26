@@ -161,6 +161,7 @@ binding = do
 bindings :: P [(Name, Ty)]
 bindings = many1 $ parens binding
 
+
 lam :: P Term
 lam = do
   i <- getPos

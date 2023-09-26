@@ -14,7 +14,7 @@
 module Elab (elabDeclaration, elabTerm) where
 
 import Common (abort)
-import Core as C
+import Core
 import Data.Maybe
 import Subst
 import qualified Surf as S
@@ -62,8 +62,8 @@ elabTerm types = go []
       S.Pnt i str t -> Pnt i (fromString str) (go env t)
       -- Aplicaciones generales
       S.App p h a -> App p (go env h) (go env a)
-      S.Let p (v, vty) def body ->
-        Let p v (go' vty) (go env def) (close v (go (v : env) body))
+      S.Let p (v, vty) def bdy ->
+        Let p v (go' vty) (go env def) (close v (go (v : env) bdy))
       S.LetRec i (f, ty) [] t t' -> abort "Empty let rec list"
       S.LetRec i (f, ty) (b : bs) t t' ->
         go env (S.Let i (f, funTy) (S.Fix i (f, funTy) (b : bs) t) t')

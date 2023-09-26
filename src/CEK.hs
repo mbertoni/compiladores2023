@@ -8,8 +8,8 @@ import MonadFD4
 
 data Value
   = VNat Int
-  | CFun Env Name TTerm
-  | CFix Env Name Name TTerm
+  | CFun Name TTerm Env
+  | CFix Name Name TTerm Env
   deriving (Show)
 
 lit2Value :: Literal -> Value
@@ -25,28 +25,29 @@ type Env = [Value]
 type Continuation = [Frame]
 
 data Frame
-  = AppL Env TTerm -- (App □ arg)
+  = AppL TTerm Env -- (App □ arg)
   | AppR Value -- (App f □)
-  | IfZC Env TTerm TTerm -- (IfZ □ then else)
-  | BOpL Env BinaryOp TTerm -- (□ (+) u)
+  | IfZC TTerm TTerm Env -- (IfZ □ then else)
+  | BOpL BinaryOp TTerm Env -- (□ (+) u)
   | BOpR BinaryOp Value -- (v (+) □)
-  | -- | VarT Var
-    PntT Literal -- (print s □)
-  | LetD Env Name TTerm -- let □ in term
+  | PntT Literal -- (print s □)
+  | LetD Name TTerm Env -- let □ in term
   deriving (Show)
 
 seek :: (MonadFD4 m) => TTerm -> Env -> Continuation -> m Value
 seek term env k = case term of
   Pnt _ s t -> seek t env (PntT s : k)
-  BOp _ op t u -> seek t env (BOpL env op u : k)
-  IfZ _ c t e -> seek c env (IfZC env t e : k)
-  App _ t u -> seek t env (AppL env u : k)
-  Lam _ nm _ (Sc1 t) -> destroy (CFun env nm t) k
-  Fix _ f _ x _ (Sc2 t) -> destroy (CFix env f x t) k
+  BOp _ op t u -> seek t env (BOpL op u env : k)
+  IfZ _ c t e -> seek c env (IfZC t e env : k)
+  App _ t u -> seek t env (AppL u env : k)
+  Lam _ nm _ (Sc1 t) -> destroy (CFun nm t env) k
+  Fix _ f _ x _ (Sc2 t) -> destroy (CFix f x t env) k
   Lit _ l -> destroy (lit2Value l) k
-  Let _ n _ t' (Sc1 t) -> seek t' env (LetD env n t : k)
-  Var _ (Bound b) -> abort "unimplemented" -- acá qué hay que hacer?
-  Var _ (Free nm) -> abort "unimplemented" -- entiendo que acá tendríamos que fallar
+  Let _ n _ t' (Sc1 t) -> seek t' env (LetD n t env : k)
+  Var _ (Bound b) -> destroy (env !! b) k
+  Var _ (Free nm) ->
+    -- pueden venir Free en los Scope?
+    abort "No debería haber variables libres" -- entiendo que acá tendríamos que fallar.
   Var _ (Global nm) -> do
     t <- lookupDecl nm
     case t of
@@ -56,21 +57,21 @@ seek term env k = case term of
 destroy :: (MonadFD4 m) => Value -> Continuation -> m Value
 destroy v [] = return v
 destroy v (fr : k) = case fr of
-  PntT lit -> destroy v k -- Nos falta imprimir?
-  BOpL env op term -> seek term env (BOpR op v : k)
+  PntT lit -> printFD4 (unS lit ++ show v) >> destroy v k
+  BOpL op term env -> seek term env (BOpR op v : k)
   BOpR op value -> case (value, v) of
     (VNat l, VNat r) -> destroy (VNat $ semOp op l r) k
     _ -> abort "error de tipos runtime"
-  IfZC env t e -> case v of
+  IfZC t e env -> case v of
     VNat 0 -> seek t env k
     VNat _ -> seek e env k
     _ -> abort "error de tipos runtime"
-  AppL env t -> seek t env (AppR v : k)
-  AppR value -> case value of
-    CFun env x t -> seek t (v : env) k
-    CFix env f x t -> seek t (value : v : env) k
+  AppL t env -> seek t env (AppR v : k)
+  AppR clos -> case clos of
+    CFun _ t env -> seek t (v : env) k
+    CFix _ _ t env -> seek t (clos : v : env) k
     _ -> abort "error de tipos runtime"
-  LetD env _ t -> seek t (v : env) k -- olvido tu nombre?
+  LetD _ t env -> seek t (v : env) k -- olvido tu nombre?
 
 eval :: (MonadFD4 m) => TTerm -> m TTerm
 -- Ayer escribimos esto

@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Surf where
 
@@ -11,7 +12,7 @@ import Common (Pos)
 
 type Ident = String
 
-data Literal = N Int | S String
+data Literal = N Integer | S String
   deriving (Show)
 
 data UnaryOp = Bang
@@ -23,8 +24,8 @@ data BinaryOp = Add | Sub
 data Rec binder = Rec binder | NoRec
   deriving (Show)
 
-data Par = Par | NoPar
-  deriving (Show)
+data Par = P | NoP
+  deriving (Eq, Show)
 
 type Bind symbol referent = ([symbol], referent)
 
@@ -36,6 +37,7 @@ data Decl ident binder ty term
 -- \| AST the términos superficiales
 data Tm ident binder ty term
   = Var ident
+  | Par term
   | Lit Literal
   | Pnt String term
   | UOp UnaryOp term
@@ -45,6 +47,7 @@ data Tm ident binder ty term
   | Lam [binder] ty term
   | Fix binder binder [binder] ty term
   | Let Par ident (Rec binder) [binder] ty term term
+  -- falta ver el comentario en ss.pdf del print parcialmente aplicado
   deriving (Show, Functor)
 
 -- me lleva el chango, en ocaml
@@ -56,6 +59,7 @@ type Declaration = Decl Ident Binder Ty Term
 
 data Ty
   = Nat
+  | ParTy Ty
   | Arrow Ty Ty
   | Alias Ident
   deriving (Show, Eq)

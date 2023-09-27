@@ -64,12 +64,6 @@ whiteSpace = Tok.whiteSpace lexer
 natural :: P Integer
 natural = Tok.natural lexer
 
-numLiteral :: P Integer
-numLiteral = natural
-
-stringLiteral :: P String
-stringLiteral = Tok.stringLiteral lexer
-
 parens :: P a -> P a
 parens = Tok.parens lexer
 
@@ -78,21 +72,6 @@ reserved = Tok.reserved lexer
 
 reservedOp :: String -> P ()
 reservedOp = Tok.reservedOp lexer
-
--- identifier :: P Ident
--- identifier = Tok.identifier lexer
-
-varIdent :: P Ident
-varIdent = Tok.lexeme lexer $ do
-  c <- lower
-  cs <- many (identLetter langDef)
-  return (c : cs)
-
-tyIdent :: P Ident
-tyIdent = Tok.lexeme lexer $ do
-  c <- upper
-  cs <- many (identLetter langDef)
-  return (c : cs)
 
 -----------------------
 -- Parsers
@@ -106,21 +85,41 @@ getPos = do
 -- ident :: P Ident
 -- ident = identifier
 
+numLiteral :: P Literal
+numLiteral = N <$> natural
+
+stringLiteral :: P Literal
+stringLiteral = S <$> Tok.stringLiteral lexer
+
 literal :: P Literal
-literal = n <|> s
-  where
-    n = N <$> numLiteral
-    s = S <$> stringLiteral
+literal = numLiteral <|> stringLiteral
+
+varIdent :: P Ident
+varIdent = Tok.lexeme lexer $ do
+  c <- lower
+  cs <- many (identLetter langDef)
+  return (c : cs)
+
+tyIdent :: P Ident
+tyIdent = Tok.lexeme lexer $ do
+  c <- upper
+  cs <- many (identLetter langDef)
+  return (c : cs)
 
 binder :: P Binder
 binder = parens $ do
-  is <- many1 varIdent
+  x <- varIdent
   reservedOp ":"
-  t <- ty
-  return (is, t)
+  tau <- ty
+  return (x, tau)
 
-binders :: P [Binder]
-binders = many1 $ parens binder
+multiBinder :: P MultiBinder
+multiBinder = many1 $ parens $ do
+  x <- many1 varIdent
+  reservedOp ":"
+  tau <- ty
+  return (x, tau)
+
 
 ty :: P Ty
 ty = alias <|> arrow <|> nat <|> parTy
@@ -164,7 +163,7 @@ term = Ex.buildExpressionParser opTable term'
     pnt = do
       _ <- getPos
       reserved "print"
-      str <- option "" stringLiteral
+      str <- option (S "") stringLiteral
       a <- atom
       return $ T (Pnt str a)
 
@@ -187,7 +186,7 @@ term = Ex.buildExpressionParser opTable term'
     lam = do
       _ <- getPos
       reserved "fun"
-      bs <- binders
+      bs <- multiBinder
       reservedOp "->"
       t <- term
       return (T (Lam bs t))
@@ -209,7 +208,7 @@ term = Ex.buildExpressionParser opTable term'
       reserved "fix"
       f <- binder
       x <- binder
-      bs <- binders
+      bs <- multiBinder
       reservedOp "->"
       t <- term
       return (T (Fix f x bs t))
@@ -221,30 +220,31 @@ term = Ex.buildExpressionParser opTable term'
         core = do
           _ <- getPos
           reserved "let"
-          (x, tau) <- parens $ do
-            i <- varIdent
+          b <- parens $ do
+            x <- varIdent
             reservedOp ":"
             tau <- ty
-            return (i, tau)
+            return $ bind x tau
           reservedOp "="
           t <- term
           reserved "in"
           t' <- term
-          return (T (Let P x NRec [] tau t t'))
+          return (T (Let P b NRec [] t t'))
 
         nRec :: P Term
         nRec = do
           _ <- getPos
           reserved "let"
           f <- varIdent
-          bs <- binders
+          bs <- multiBinder
           reservedOp ":"
           tau <- ty
+          let b = bind f tau
           reservedOp "="
           t <- term
           reserved "in"
           t' <- term
-          return (T (Let NP f NRec bs tau t t'))
+          return (T (Let NP b NRec bs t t'))
 
         rec_ :: P Term
         rec_ = do
@@ -253,14 +253,15 @@ term = Ex.buildExpressionParser opTable term'
           reserved "rec"
           f <- varIdent
           x <- binder
-          bs <- binders
+          bs <- multiBinder
           reservedOp ":"
           tau <- ty
+          let b = bind f tau
           reservedOp "="
           t <- term
           reserved "in"
           t' <- term
-          return (T (Let NP f (Rec x) bs tau t t'))
+          return (T (Let NP b (Rec x) bs t t'))
 
 -- | Parser de declaraciones
 declaration :: P Declaration
@@ -270,10 +271,10 @@ declaration = letDecl <|> typeDecl
     typeDecl = do
       _ <- getPos
       reserved "type"
-      i <- tyIdent
+      t <- tyIdent
       reservedOp "="
-      t <- ty
-      return $ TypeDecl i t
+      tau <- ty
+      return $ TypeDecl (bind t tau)
 
     letDecl :: P Declaration
     letDecl = core <|> nRec <|> rec_
@@ -282,26 +283,27 @@ declaration = letDecl <|> typeDecl
         core = do
           _ <- getPos
           reserved "let"
-          (x, tau) <- parens $ do
-            i <- varIdent
+          b <- parens $ do
+            x <- varIdent
             reservedOp ":"
             tau <- ty
-            return (i, tau)
+            return $ bind x tau
           reservedOp "="
           t <- term
-          return (LetDecl P x NRec [] tau t)
+          return $ LetDecl P b NRec [] t
 
         nRec :: P Declaration
         nRec = do
           _ <- getPos
           reserved "let"
           f <- varIdent
-          bs <- binders
+          bs <- multiBinder
           reservedOp ":"
           tau <- ty
+          let b = bind f tau
           reservedOp "="
           t <- term
-          return (LetDecl NP f NRec bs tau t)
+          return $ LetDecl NP b NRec bs t
 
         rec_ :: P Declaration
         rec_ = do
@@ -310,12 +312,13 @@ declaration = letDecl <|> typeDecl
           reserved "rec"
           f <- varIdent
           x <- binder
-          bs <- binders
+          bs <- multiBinder
           reservedOp ":"
           tau <- ty
+          let b = bind f tau
           reservedOp "="
           t <- term
-          return (LetDecl NP f (Rec x) bs tau t)
+          return $ LetDecl NP b (Rec x) bs t
 
 -- | Parser de programas (listas de declaraciones)
 program :: P [Declaration]

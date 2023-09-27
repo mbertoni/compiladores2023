@@ -5,14 +5,17 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Surf where
 
-import Common (Pos)
+import Data.String (IsString (..))
 
 type Ident = String
 
-data Literal = N Integer | S String
+data Literal
+  = N {unN :: Integer}
+  | S {unS :: String}
   deriving (Show)
 
 data UnaryOp = Bang
@@ -27,34 +30,38 @@ data Rec binder = Rec binder | NRec
 data Par = P | NP
   deriving (Eq, Show)
 
-type Bind symbol referent = ([symbol], referent)
+type Bind = (,)
+bind :: a -> b -> Bind a b
+bind = (,)
 
-data Decl ident binder ty term
-  = TypeDecl ident ty
-  | LetDecl Par ident (Rec binder) [binder] ty term
+type Multi a b = [Bind [a] b]
+data Decl binder multi term
+  = TypeDecl binder
+  | LetDecl Par binder (Rec binder) multi term
   deriving (Show)
 
 -- \| AST the términos superficiales
-data Tm ident binder ty term
+data Tm binder multi ident term
   = Var ident
   | Par term
   | Lit Literal
-  | Pnt String term
+  | Pnt Literal term
   | UOp UnaryOp term
   | BOp BinaryOp term term
   | IfZ term term term
   | App term term
-  | Lam [binder] term
-  | Fix binder binder [binder] term
-  | Let Par ident (Rec binder) [binder] ty term term
+  | Lam multi term
+  | Fix binder binder multi term
+  | Let Par binder (Rec binder) multi term term
   -- falta ver el comentario en ss.pdf del print parcialmente aplicado
-  deriving (Show, Functor, Applicative, Monad)
+  deriving (Show, Functor)
 
 type Binder = Bind Ident Ty
+type MultiBinder = Multi Ident Ty
 
-newtype Term = T {unT :: Tm Ident Binder Ty Term}
+newtype Term = T {unT :: Tm Binder MultiBinder Ident Term}
 
-type Declaration = Decl Ident Binder Ty Term
+type Declaration = Decl Binder MultiBinder Term
 
 data Ty
   = Nat
@@ -65,3 +72,16 @@ data Ty
 
 tyFold :: [Ty] -> Ty
 tyFold = foldr1 Arrow
+
+-- Instancias para abreviar cuando depuramos
+instance Num Literal where
+  fromInteger = N . fromInteger
+
+instance Num (Tm a b c d) where
+  fromInteger = Lit . fromInteger
+
+instance IsString Literal where
+  fromString = S
+
+instance IsString (Tm a b c d) where
+  fromString = Lit . fromString

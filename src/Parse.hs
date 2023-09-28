@@ -114,16 +114,18 @@ binder = parens $ do
   return (x, tau)
 
 multiBinder :: P MultiBinder
-multiBinder = many1 $ parens $ do
+multiBinder = many $ parens $ do
   x <- many1 varIdent
   reservedOp ":"
   tau <- ty
   return (x, tau)
 
-
 ty :: P Ty
-ty = alias <|> arrow <|> nat <|> parTy
+ty =  try arrow <|> tyAtom 
   where
+    tyAtom :: P Ty
+    tyAtom =  nat <|> parTy <|> alias
+    
     nat :: P Ty
     nat = reserved "Nat" >> return Nat
 
@@ -135,7 +137,7 @@ ty = alias <|> arrow <|> nat <|> parTy
 
     arrow :: P Ty
     arrow = do
-      x <- ty
+      x <- tyAtom
       reservedOp "->"
       y <- ty
       return (Arrow x y)
@@ -143,7 +145,7 @@ ty = alias <|> arrow <|> nat <|> parTy
 term :: P Term
 term = Ex.buildExpressionParser opTable term'
   where
-    term' = app <|> lam <|> ifz <|> pnt <|> fix <|> let_
+    term' = ifz <|> lam <|> pnt <|> fix <|> let_  <|> app
 
     opTable :: [[Operator String () Identity Term]]
     opTable =
@@ -170,9 +172,9 @@ term = Ex.buildExpressionParser opTable term'
     atom :: P Term
     atom =
       T . Lit <$> literal -- <*> getPos
-        <|> T . Var <$> varIdent -- <*> getPos
-        <|> parens term
+        <|> T . Par <$> parens term
         <|> pnt
+        <|> T . Var <$> varIdent -- <*> getPos
 
     -- Nota el parser app también parsea un solo atom.
     app :: P Term
@@ -220,11 +222,11 @@ term = Ex.buildExpressionParser opTable term'
         core = do
           _ <- getPos
           reserved "let"
-          b <- parens $ do
-            x <- varIdent
-            reservedOp ":"
-            tau <- ty
-            return $ bind x tau
+          b <- try binder <|> do
+                                x <- varIdent
+                                reservedOp ":"
+                                tau <- ty
+                                return $ bind x tau
           reservedOp "="
           t <- term
           reserved "in"

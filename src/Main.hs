@@ -40,6 +40,7 @@ import System.Console.Haskeline
 import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPrint, hPutStrLn, stderr)
 import TypeChecker (tc, tcDecl)
+import ByteCompile
 
 prompt :: String
 prompt = "FD4> "

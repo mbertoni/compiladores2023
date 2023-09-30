@@ -20,16 +20,17 @@ import Data.ByteString.Lazy qualified as BS
 import Data.Char
 import Data.List (intercalate)
 import Core
+import Common
 import MonadFD4
 import Subst -- será que esto es una pista que nos están tirando?
 
 type Opcode = Int
 
 type Bytecode = [Int]
-type Env = [Int]
+type Env = [Value]
 
 type Stack = [Value]
-data Value = Nat Int | Fun Env Bytecode | RetAd Env Bytecode
+data Value = Natural Int | Fun Env Bytecode | RetAd Env Bytecode
   deriving Show
 
 newtype Bytecode32 = BC {un32 :: [Word32]}
@@ -93,6 +94,8 @@ pattern JUMP = 15
 
 pattern IFZ = 16
 
+pattern LET = 17
+
 -- función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
 showOps [] = []
@@ -121,22 +124,37 @@ showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
 
 bcc :: (MonadFD4 m) => TTerm -> m Bytecode
-bcc (Var info (Bound i)) = ACCESS:i:[] -- Creo que las info desaparecen, again
+bcc (Var info (Bound i)) = return (ACCESS:[i]) -- Creo que las info desaparecen, again
 -- bcc (Var _ (Free n)) = failFD4 "No puede haber Frees"
 -- bcc (Var _ (Global n)) = failFD4 "Los TTerm deberían estar resueltos ya"
-bcc (Lit _ (N n)) = CONST:n:[] 
-bcc (Lit _ (S s)) = CONST:s:[] -- Appendeamos strings? Fallamos?
-bcc (Lam _ _ _ (Sc1 t)) = 
-  let bct = bcc t in FUNCTION:(length bct):[] ++ bct ++ RETURN:[]
-bcc (App _ t1 t2) = bcc t1 ++ bcc t2 ++ CALL:[]
-bcc (Pnt _ s t) | s == abort "unimplemented"
-bcc (BOp _ Add x y) = bcc x ++ bcc y ++ ADD:[]
-bcc (BOp _ Sub x y) = bcc x ++ bcc y ++ SUB:[]
-bcc (Fix _ fn fty x xty (Sc2 t)) = 
-  let bct = bcc t in FIX:(length bct):[] ++ bct ++ RETURN:[] -- No se la verdad
-bcc (IfZ _ c t e) = bcc c ++ bcc t ++ bcc e ++ IFZ:[] -- No tengo idea la verdad
-bcc (Let _ _ _ t' (Sc1 t)) = abort "unimplemented"
-bcc _ = abort "Patrón no capturado en bcc"
+bcc (Lit _ (N n)) = return $ CONST:[n] 
+-- bcc (Lit _ (S s)) = CONST:s:[] -- Appendeamos strings? Fallamos?
+bcc (Lam _ _ _ (Sc1 t)) = do 
+  bct <- bcc t  
+  return $ FUNCTION:[length bct] ++ bct ++ [RETURN]
+bcc (App _ t1 t2) = do
+  bct1 <- bcc t1
+  bct2 <- bcc t2
+  return $ bct1 ++ bct2 ++ [CALL]
+bcc (Pnt _ s t) = failFD4 "unimplemented"
+bcc (BOp _ Add x y) = do
+  bcx <- bcc x
+  bcy <- bcc y
+  return $ bcx ++ bcy ++ [ADD]
+bcc (BOp _ Sub x y) = do
+  bcx <- bcc x
+  bcy <- bcc y
+  return $ bcx ++ bcy ++ [SUB]
+bcc (Fix _ fn fty x xty (Sc2 t)) = do 
+  bct <- bcc t  
+  return $ FIX:[length bct] ++ bct ++ [RETURN] -- No se la verdad
+bcc (IfZ _ c t e) = do
+  bccond <- bcc c
+  bcthen <- bcc t 
+  bcelse <- bcc e
+  return $ bccond ++ bcthen ++ bcelse ++ [IFZ] -- No tengo idea la verdad
+bcc (Let _ _ _ t' (Sc1 t)) = failFD4 "unimplemented"
+bcc _ = failFD4 "Patrón no capturado en bcc"
 
 -- ord/chr devuelven los code-points unicode, o en otras palabras
 -- la codificación UTF-32 del carácter.
@@ -146,9 +164,16 @@ string2bc = map ord
 bc2string :: Bytecode -> String
 bc2string = map chr
 
-type Module = [Term] -- por ahora para que compile. TODO: preguntar
+type Module = [Decl TTerm] -- Creo que sería así. Definimos un programa como una lista de declaraciones
 byteCompileModule :: (MonadFD4 m) => Module -> m Bytecode
-byteCompileModule m = failFD4 "implementa-me!"
+byteCompileModule m = do  tt <- declIntoTerm m
+                          bcc tt
+                      
+  
+declIntoTerm :: (MonadFD4 m) => Module -> m TTerm
+declIntoTerm [] = failFD4 "Módulo vacío"
+-- declIntoTerm [t] = Let (t.pos) t.name Ty (Tm (t.pos) var) (Sc1 (Tm info var)) 
+declIntoTerm _ = failFD4 "unimplemented"
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()
@@ -168,18 +193,18 @@ runBC :: (MonadFD4 m) => Bytecode -> m ()
 runBC bc = run bc [] []
 
 
-run :: MonadFD4 m => Bytecode -> Environment -> Stack -> m ()
-run (ACCESS:i:c) e s = run c e (Nat (e!!i):s)
-run (CONST:n:c) e s = run c e (Nat n:s)
-run (ADD:c) e (Nat n:Nat m:s) = run c e (Nat (m+n):s)
-run (SUB:c) e (Nat n:Nat m:s) = run c e (Nat result:s) 
-  where resta = m-n -- es para "mejorar" perfo
-        result = if resta <= 0 then 0 else resta
+run :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
+run (ACCESS:i:c) e s = run c e ((e!!i):s)
+run (CONST:n:c) e s = run c e (Natural n:s)
+run (ADD:c) e (Natural n:Natural m:s) = run c e (Natural (m+n):s)
+run (SUB:c) e (Natural y:Natural x:s) = run c e (Natural (max (x-y) 0):s) 
 run (CALL:c) e (v:Fun ef cf:s) = run cf (v:ef) (RetAd e c:s)  
-run (FUNCTION:Nat size:c) e s = run c e (Fun e cf:s)
+run (FUNCTION:size:c) e s = run (drop size c) e (Fun e cf:s)
   where cf = take size c
-        c = drop size c
 run (PRINT:c) e s = failFD4 "Unimplemented Print"
+run (PRINTN:c) e s = failFD4 "Unimplemented Print"
+run (DROP:c) e s = failFD4 "Unimplemented Drop"
+run (SHIFT:c) e s = failFD4 "Unimplemented Shift"
 run (IFZ:c) e s = failFD4 "Unimplemented IfZ"
 run (FIX:c) e s = failFD4 "Unimplemented Fix"
 run (LET:c) e s = failFD4 "Unimplemented Let"

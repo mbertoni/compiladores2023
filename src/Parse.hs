@@ -18,6 +18,7 @@ import Common
 -- ( GenLanguageDef(..), emptyDef )
 
 import Control.Monad.Identity (Identity)
+import Data.Char
 import Data.Composition
 import Data.Data qualified as E
 import Data.List.NonEmpty (fromList)
@@ -93,11 +94,25 @@ stringLiteral = S <$> Tok.stringLiteral lexer
 literal :: P Literal
 literal = numLiteral <|> stringLiteral
 
-varIdent :: P Ident
-varIdent = Tok.lexeme lexer $ do
+varIdent' :: P Ident
+varIdent' = Tok.lexeme lexer $ do
   c <- lower
   cs <- many (identLetter langDef)
   return $ VarId (c : cs)
+
+varIdent :: P Ident
+varIdent = do
+  s <- Tok.identifier lexer
+  if isUpper (head s)
+    then fail "expecting lowercase id"
+    else return (VarId s)
+
+tyIdent :: P Ident
+tyIdent = do
+  s <- Tok.identifier lexer
+  if isUpper (head s)
+    then return (TyId s)
+    else fail "expecting uppercase id"
 
 binder :: Par -> P Binder
 binder p = parens' $ do
@@ -118,8 +133,8 @@ multi = parens $ do
   tau <- ty
   return $ bind xs tau
 
-tyIdent :: P Ident
-tyIdent = Tok.lexeme lexer $ do
+tyIdent' :: P Ident
+tyIdent' = Tok.lexeme lexer $ do
   c <- upper
   cs <- many (identLetter langDef)
   return $ TyId (c : cs)
@@ -159,7 +174,7 @@ term :: P Term
 term = Ex.buildExpressionParser opTable term' <?> "term"
   where
     term' :: P Term
-    term' = ifz <|> fun <|> fix <|> app
+    term' = ifz <|> fun <|> fix <|> let_ <|> app
 
     opTable :: [[Operator String () Identity Term]]
     opTable =
@@ -181,8 +196,9 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
         <|> T . Par <$> parens term
         <|> pnt
         <|> T . Var <$> varIdent -- <*> getPos
+        <?> "atom"
 
-    -- Nota el parser app también parsea un solo atom.
+    -- | Nota el parser app también parsea un solo atom.
     app :: P Term
     app = do
       f <- atom
@@ -233,8 +249,7 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
         core = do
           b <- binder P
           (t, t') <- terms
-          return "lalala"
-        -- return . T $ Let P b NoRec [] t t'
+          return . T $ Let P b NoRec [] t t'
 
         rec_ :: P Term
         rec_ = do
@@ -261,9 +276,8 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
           reservedOp "="
           t <- term
           reserved "in"
-          -- t' <- term
-          -- return (t, t')
-          return (1, "terms")
+          t' <- term
+          return (t, t')
 
 -- \| Parser de declaraciones
 declaration :: P Declaration
@@ -331,8 +345,7 @@ declarationOrTerm =
 
 -- Corre un parser, chequeando que se pueda consumir toda la entrada
 runP :: P a -> String -> String -> Either ParseError a
--- runP p s filename = runParser (whiteSpace *> p <* eof) () filename s
-runP p s filename = runParser p () filename s
+runP p s filename = runParser (whiteSpace *> p <* eof) () filename s
 
 -- para debugging en uso interactivo (ghci)
 parse :: P a -> String -> a
@@ -340,4 +353,5 @@ parse p s = case runP p s "" of
   Right t -> t
   Left e -> error ("no parse: " ++ show s)
 
-pt p = parseTest (whiteSpace *> p <* eof)
+test :: Show a => P a -> String -> IO ()
+test p = parseTest (whiteSpace *> p <* eof)

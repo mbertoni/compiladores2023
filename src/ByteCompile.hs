@@ -29,7 +29,7 @@ type Bytecode = [Int]
 type Env = [Int]
 
 type Stack = [Value]
-data Value = Nat Int | Fun Env Bytecode 
+data Value = Nat Int | Fun Env Bytecode | RetAd Env Bytecode
   deriving Show
 
 newtype Bytecode32 = BC {un32 :: [Word32]}
@@ -125,7 +125,7 @@ bcc (Var info (Bound i)) = ACCESS:i:[] -- Creo que las info desaparecen, again
 -- bcc (Var _ (Free n)) = failFD4 "No puede haber Frees"
 -- bcc (Var _ (Global n)) = failFD4 "Los TTerm deberían estar resueltos ya"
 bcc (Lit _ (N n)) = CONST:n:[] 
--- bcc (Lit _ (S s)) = CONST:n:[] Appendeamos strings? Fallamos?
+bcc (Lit _ (S s)) = CONST:s:[] -- Appendeamos strings? Fallamos?
 bcc (Lam _ _ _ (Sc1 t)) = 
   let bct = bcc t in FUNCTION:(length bct):[] ++ bct ++ RETURN:[]
 bcc (App _ t1 t2) = bcc t1 ++ bcc t2 ++ CALL:[]
@@ -165,12 +165,24 @@ bcRead :: FilePath -> IO Bytecode
 bcRead filename = (map fromIntegral <$> un32) . decode <$> BS.readFile filename
 
 runBC :: (MonadFD4 m) => Bytecode -> m ()
-runBC bc = failFD4 "implementa-me!"
+runBC bc = run bc [] []
 
 
 run :: MonadFD4 m => Bytecode -> Environment -> Stack -> m ()
--- está bien que retornemos mónada unit? 
-run (ACCESS:i:c) e s = run c e s'
-  where n = e!!i
-        s' = Nat n:s
+run (ACCESS:i:c) e s = run c e (Nat (e!!i):s)
+run (CONST:n:c) e s = run c e (Nat n:s)
+run (ADD:c) e (Nat n:Nat m:s) = run c e (Nat (m+n):s)
+run (SUB:c) e (Nat n:Nat m:s) = run c e (Nat result:s) 
+  where resta = m-n -- es para "mejorar" perfo
+        result = if resta <= 0 then 0 else resta
+run (CALL:c) e (v:Fun ef cf:s) = run cf (v:ef) (RetAd e c:s)  
+run (FUNCTION:Nat size:c) e s = run c e (Fun e cf:s)
+  where cf = take size c
+        c = drop size c
+run (PRINT:c) e s = failFD4 "Unimplemented Print"
+run (IFZ:c) e s = failFD4 "Unimplemented IfZ"
+run (FIX:c) e s = failFD4 "Unimplemented Fix"
+run (LET:c) e s = failFD4 "Unimplemented Let"
+run (RETURN:_) _ (v:RetAd e c:s) = run c e (v:s)
+run (STOP:_) _ _ = return ()
 run _ _ _ = failFD4 "Error en el ByteCode"

@@ -36,13 +36,14 @@ bind = (,)
 
 type Binder = Bind Ident Ty
 
-type Multi = Bind (NonEmpty Ident) Ty
+type Multi = Bind (NonEmpty Ident) Ty -- TODO los multi tienen que tener 2 variables
 
 data Decl term
   = TypeDecl Binder
-  | LetDecl Par Binder (Rec Binder) [Multi] term
+  | LetDecl Par Binder (Rec Multi) [Multi] term
 
 type Declaration = Decl Term
+
 
 -- \| AST the términos superficiales
 data Tm term
@@ -55,7 +56,7 @@ data Tm term
   | IfZ term term term
   | App term term
   | Fun (NonEmpty Multi) term
-  | Fix Binder Binder [Multi] term -- TODO y si viene un multi con dos variables (f y x)?
+  | Fix Binder Binder [Multi] term -- : y si viene un multi con dos variables (f y x)?
   | Let Par Binder (Rec Multi) [Multi] term term
   -- falta ver el comentario en ss.pdf del print parcialmente aplicado
   deriving (Functor)

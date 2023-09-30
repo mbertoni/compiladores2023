@@ -20,11 +20,9 @@ import Common
 import Control.Monad.Identity (Identity)
 import Data.Char
 import Data.Composition
-import Data.Data qualified as E
 import Data.List.NonEmpty (fromList)
 import Surf
 import Text.Parsec hiding (parse, runP)
-import Text.Parsec.Expr (Assoc, Operator)
 import Text.Parsec.Expr qualified as Ex
 import Text.Parsec.Token qualified as Tok
 import Text.ParserCombinators.Parsec.Language
@@ -94,12 +92,6 @@ stringLiteral = S <$> Tok.stringLiteral lexer
 literal :: P Literal
 literal = numLiteral <|> stringLiteral
 
-varIdent' :: P Ident
-varIdent' = Tok.lexeme lexer $ do
-  c <- lower
-  cs <- many (identLetter langDef)
-  return $ VarId (c : cs)
-
 varIdent :: P Ident
 varIdent = do
   s <- Tok.identifier lexer
@@ -133,42 +125,26 @@ multi = parens $ do
   tau <- ty
   return $ bind xs tau
 
-tyIdent' :: P Ident
-tyIdent' = Tok.lexeme lexer $ do
-  c <- upper
-  cs <- many (identLetter langDef)
-  return $ TyId (c : cs)
-
 ty :: P Ty
-ty = Ex.buildExpressionParser opTable ty'
+ty = Ex.buildExpressionParser opTable ty' <?> "type"
   where
-    opTable :: [[Operator String () Identity Ty]]
+    opTable :: [[Ex.Operator String () Identity Ty]]
     opTable = [[binary "->" Arrow Ex.AssocRight]]
       where
-        binary :: String -> (Ty -> Ty -> Ty) -> Assoc -> Operator String () Identity Ty
+        binary :: String -> (Ty -> Ty -> Ty) -> Ex.Assoc -> Ex.Operator String () Identity Ty
         binary s f = Ex.Infix $ reservedOp s >> return f
 
     ty' :: P Ty
-    ty' = atom -- try arrow <|> atom
+    ty' = nat <|> parTy <|> alias
       where
-        atom :: P Ty
-        atom = nat <|> parTy <|> alias
-
         nat :: P Ty
-        nat = reserved "Nat" >> return Nat
+        nat = reserved "Nat" >> return Nat <?> "nat"
 
         alias :: P Ty
-        alias = Alias <$> tyIdent
+        alias = Alias <$> tyIdent <?> "alias"
 
         parTy :: P Ty
-        parTy = ParTy <$> parens ty
-
--- arrow :: P Ty
--- arrow = do
---   x <- atom
---   reservedOp "->"
---   y <- ty
---   return $ Arrow x y
+        parTy = ParTy <$> parens ty <?> "party"
 
 term :: P Term
 term = Ex.buildExpressionParser opTable term' <?> "term"
@@ -176,7 +152,7 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
     term' :: P Term
     term' = ifz <|> fun <|> fix <|> let_ <|> app
 
-    opTable :: [[Operator String () Identity Term]]
+    opTable :: [[Ex.Operator String () Identity Term]]
     opTable =
       [ [unary "!" Bang],
         [ binary "+" Add Ex.AssocLeft,
@@ -184,10 +160,10 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
         ]
       ]
       where
-        unary :: String -> UnaryOp -> Operator String () Identity Term
+        unary :: String -> UnaryOp -> Ex.Operator String () Identity Term
         unary s op = Ex.Prefix $ reservedOp s >> return (T . UOp op)
 
-        binary :: String -> BinaryOp -> Assoc -> Operator String () Identity Term
+        binary :: String -> BinaryOp -> Ex.Assoc -> Ex.Operator String () Identity Term
         binary s op = Ex.Infix $ reservedOp s >> return (T .: BOp op)
 
     atom :: P Term
@@ -243,7 +219,7 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
     let_ :: P Term
     let_ = do
       reserved "let"
-      core -- <|> rec <|> nRec
+      core <|> rec_ <|> nRec
       where
         core :: P Term
         core = do
@@ -292,45 +268,39 @@ declaration = letDecl <|> typeDecl
       return $ TypeDecl (bind t tau)
 
     letDecl :: P Declaration
-    letDecl = core <|> nRec <|> rec_
-      where
-        core :: P Declaration
-        core = do
-          reserved "let"
-          b <- parens $ do
-            x <- varIdent
+    letDecl = do
+      reserved "let"
+      core <|> rec_ <|> nRec
+        where
+          core :: P Declaration
+          core = do
+            b <- binder P
+            reservedOp "="
+            t <- term
+            return $ LetDecl P b NoRec [] t
+
+          rec_ :: P Declaration
+          rec_ = do
+            reserved "rec"
+            f <- varIdent
+            x <- multi
+            bs <- many multi
             reservedOp ":"
             tau <- ty
-            return $ bind x tau
-          reservedOp "="
-          t <- term
-          return $ LetDecl P b NoRec [] t
+            reservedOp "="
+            t <- term
+            return $ LetDecl NP (bind f tau) (Rec x) bs t
 
-        nRec :: P Declaration
-        nRec = do
-          reserved "let"
-          f <- varIdent
-          bs <- many multi
-          reservedOp ":"
-          tau <- ty
-          let b = bind f tau
-          reservedOp "="
-          t <- term
-          return $ LetDecl NP b NoRec bs t
+          nRec :: P Declaration
+          nRec = do
+            f <- varIdent
+            bs <- many multi
+            reservedOp ":"
+            tau <- ty
+            reservedOp "="
+            t <- term
+            return $ LetDecl NP (bind f tau) NoRec bs t
 
-        rec_ :: P Declaration
-        rec_ = do
-          reserved "let"
-          reserved "rec"
-          f <- varIdent
-          x <- binder P
-          bs <- many multi
-          reservedOp ":"
-          tau <- ty
-          let b = bind f tau
-          reservedOp "="
-          t <- term
-          return $ LetDecl NP b (Rec x) bs t
 
 -- | Parser de programas (listas de declaraciones)
 program :: P [Declaration]

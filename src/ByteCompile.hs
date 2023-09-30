@@ -26,6 +26,11 @@ import Subst -- será que esto es una pista que nos están tirando?
 type Opcode = Int
 
 type Bytecode = [Int]
+type Env = [Int]
+
+type Stack = [Value]
+data Value = Nat Int | Fun Env Bytecode 
+  deriving Show
 
 newtype Bytecode32 = BC {un32 :: [Word32]}
 
@@ -86,6 +91,8 @@ pattern PRINTN = 14
 
 pattern JUMP = 15
 
+pattern IFZ = 16
+
 -- función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
 showOps [] = []
@@ -98,6 +105,7 @@ showOps (CALL : xs) = "CALL" : showOps xs
 showOps (ADD : xs) = "ADD" : showOps xs
 showOps (SUB : xs) = "SUB" : showOps xs
 showOps (FIX : xs) = "FIX" : showOps xs
+showOps (IFZ : xs) = "IFZ" : showOps xs
 showOps (STOP : xs) = "STOP" : showOps xs
 showOps (JUMP : i : xs) = ("JUMP off=" ++ show i) : showOps xs
 showOps (SHIFT : xs) = "SHIFT" : showOps xs
@@ -113,7 +121,22 @@ showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
 
 bcc :: (MonadFD4 m) => TTerm -> m Bytecode
-bcc t = failFD4 "implementa-me!"
+bcc (Var info (Bound i)) = ACCESS:i:[] -- Creo que las info desaparecen, again
+-- bcc (Var _ (Free n)) = failFD4 "No puede haber Frees"
+-- bcc (Var _ (Global n)) = failFD4 "Los TTerm deberían estar resueltos ya"
+bcc (Lit _ (N n)) = CONST:n:[] 
+-- bcc (Lit _ (S s)) = CONST:n:[] Appendeamos strings? Fallamos?
+bcc (Lam _ _ _ (Sc1 t)) = 
+  let bct = bcc t in FUNCTION:(length bct):[] ++ bct ++ RETURN:[]
+bcc (App _ t1 t2) = bcc t1 ++ bcc t2 ++ CALL:[]
+bcc (Pnt _ s t) | s == abort "unimplemented"
+bcc (BOp _ Add x y) = bcc x ++ bcc y ++ ADD:[]
+bcc (BOp _ Sub x y) = bcc x ++ bcc y ++ SUB:[]
+bcc (Fix _ fn fty x xty (Sc2 t)) = 
+  let bct = bcc t in FIX:(length bct):[] ++ bct ++ RETURN:[] -- No se la verdad
+bcc (IfZ _ c t e) = bcc c ++ bcc t ++ bcc e ++ IFZ:[] -- No tengo idea la verdad
+bcc (Let _ _ _ t' (Sc1 t)) = abort "unimplemented"
+bcc _ = abort "Patrón no capturado en bcc"
 
 -- ord/chr devuelven los code-points unicode, o en otras palabras
 -- la codificación UTF-32 del carácter.
@@ -143,3 +166,11 @@ bcRead filename = (map fromIntegral <$> un32) . decode <$> BS.readFile filename
 
 runBC :: (MonadFD4 m) => Bytecode -> m ()
 runBC bc = failFD4 "implementa-me!"
+
+
+run :: MonadFD4 m => Bytecode -> Environment -> Stack -> m ()
+-- está bien que retornemos mónada unit? 
+run (ACCESS:i:c) e s = run c e s'
+  where n = e!!i
+        s' = Nat n:s
+run _ _ _ = failFD4 "Error en el ByteCode"

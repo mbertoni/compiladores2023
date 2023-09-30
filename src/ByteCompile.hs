@@ -23,6 +23,7 @@ import Core
 import Common
 import MonadFD4
 import Subst -- será que esto es una pista que nos están tirando?
+import Data.Functor.Classes (eq1)
 
 type Opcode = Int
 
@@ -94,8 +95,6 @@ pattern JUMP = 15
 
 pattern IFZ = 16
 
-pattern LET = 17
-
 -- función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
 showOps [] = []
@@ -153,7 +152,11 @@ bcc (IfZ _ c t e) = do
   bcthen <- bcc t 
   bcelse <- bcc e
   return $ bccond ++ bcthen ++ bcelse ++ [IFZ] -- No tengo idea la verdad
-bcc (Let _ _ _ t' (Sc1 t)) = failFD4 "unimplemented"
+bcc (Let _ x _ e1 (Sc1 e2)) = do
+  bce1 <- bcc e1
+  bce2 <- bcc e2
+  return $ bce1 ++ [SHIFT] ++ bce2 ++ [DROP]
+                              
 bcc _ = failFD4 "Patrón no capturado en bcc"
 
 -- ord/chr devuelven los code-points unicode, o en otras palabras
@@ -201,13 +204,13 @@ run (SUB:c) e (Natural y:Natural x:s) = run c e (Natural (max (x-y) 0):s)
 run (CALL:c) e (v:Fun ef cf:s) = run cf (v:ef) (RetAd e c:s)  
 run (FUNCTION:size:c) e s = run (drop size c) e (Fun e cf:s)
   where cf = take size c
-run (PRINT:c) e s = failFD4 "Unimplemented Print"
-run (PRINTN:c) e s = failFD4 "Unimplemented Print"
-run (DROP:c) e s = failFD4 "Unimplemented Drop"
-run (SHIFT:c) e s = failFD4 "Unimplemented Shift"
+run (PRINT:c) e s = failFD4 "Unimplemented Print para cadenas"
+run (PRINTN:c) e (Natural n:s) = do printFD4 (show n) 
+                                    run c e (Natural n:s)
+run (DROP:c) (v:e) s = run c e s
+run (SHIFT:c) e (v:s) = run c (v:e) s
 run (IFZ:c) e s = failFD4 "Unimplemented IfZ"
 run (FIX:c) e s = failFD4 "Unimplemented Fix"
-run (LET:c) e s = failFD4 "Unimplemented Let"
 run (RETURN:_) _ (v:RetAd e c:s) = run c e (v:s)
 run (STOP:_) _ _ = return ()
 run _ _ _ = failFD4 "Error en el ByteCode"

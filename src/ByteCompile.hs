@@ -135,7 +135,10 @@ bcc (App _ t1 t2) = do
   bct1 <- bcc t1
   bct2 <- bcc t2
   return $ bct1 ++ bct2 ++ [CALL]
-bcc (Pnt _ s t) = failFD4 "unimplemented"
+bcc (Pnt _ (N n) t) = return $ PRINTN:[n]
+bcc (Pnt _ (S s) t) = do 
+  bct <- bcc t
+  return $ [PRINT] ++ string2bc s ++ [NULL] ++ bct
 bcc (BOp _ Add x y) = do
   bcx <- bcc x
   bcy <- bcc y
@@ -146,7 +149,7 @@ bcc (BOp _ Sub x y) = do
   return $ bcx ++ bcy ++ [SUB]
 bcc (Fix _ fn fty x xty (Sc2 t)) = do 
   bct <- bcc t  
-  return $ FIX:[length bct] ++ bct ++ [RETURN] -- No se la verdad
+  return $ FUNCTION:[length bct] ++ bct ++ [RETURN, FIX] -- No se la verdad
 bcc (IfZ _ c t e) = do
   bccond <- bcc c
   bcthen <- bcc t 
@@ -204,13 +207,32 @@ run (SUB:c) e (Natural y:Natural x:s) = run c e (Natural (max (x-y) 0):s)
 run (CALL:c) e (v:Fun ef cf:s) = run cf (v:ef) (RetAd e c:s)  
 run (FUNCTION:size:c) e s = run (drop size c) e (Fun e cf:s)
   where cf = take size c
-run (PRINT:c) e s = failFD4 "Unimplemented Print para cadenas"
 run (PRINTN:c) e (Natural n:s) = do printFD4 (show n) 
                                     run c e (Natural n:s)
+run (PRINT:c) e s = do  printFD4 (show strToPrint) 
+                        run cDropped e s
+  where strToPrint = bc2string (takeUntilNull c)
+        cDropped = dropUntilNull c
 run (DROP:c) (v:e) s = run c e s
 run (SHIFT:c) e (v:s) = run c (v:e) s
-run (IFZ:c) e s = failFD4 "Unimplemented IfZ"
-run (FIX:c) e s = failFD4 "Unimplemented Fix"
+run (IFZ:c) e s = run c e s
+run (JUMP:c) e s = failFD4 "Unimplemented Jump"
+run (FIX:c) e (Fun env cf:s) = run c e (Fun ef cf:s)
+  where ef = Fun ef cf : env 
 run (RETURN:_) _ (v:RetAd e c:s) = run c e (v:s)
 run (STOP:_) _ _ = return ()
 run _ _ _ = failFD4 "Error en el ByteCode"
+
+takeUntilNull :: Bytecode -> Bytecode
+takeUntilNull [] = []
+takeUntilNull (c:cs) = case c of 
+                        NULL -> []
+                        _ -> c : takeUntilNull cs
+                      
+
+dropUntilNull:: Bytecode -> Bytecode
+dropUntilNull [] = []
+dropUntilNull (c:cs) = case c of 
+                        NULL -> cs
+                        _ -> dropUntilNull cs
+

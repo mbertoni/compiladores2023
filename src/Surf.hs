@@ -1,11 +1,12 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 
 module Surf where
 
-import Common (abort)
 import Data.List.NonEmpty
 import Data.String (IsString (..))
+import Data.Bifunctor
 
 data Ident
   = VarId {unVarId :: String}
@@ -38,12 +39,17 @@ type Binder = Bind Ident Ty
 
 type Multi = Bind (NonEmpty Ident) Ty -- TODO los multi tienen que tener 2 variables
 
+flatten :: Multi -> NonEmpty Binder
+flatten (xs, tau) = (,tau) <$> xs
+
+singleton :: Binder -> Multi
+singleton = first pure -- then it got complicated
+
 data Decl term
   = TypeDecl Binder
   | LetDecl Par Binder (Rec Multi) [Multi] term
 
 type Declaration = Decl Term
-
 
 -- \| AST the términos superficiales
 data Tm term
@@ -56,24 +62,20 @@ data Tm term
   | IfZ term term term
   | App term term
   | Fun (NonEmpty Multi) term
-  | Fix Binder Binder [Multi] term -- : y si viene un multi con dos variables (f y x)?
+  | Fix Binder Binder [Multi] term -- TODO y si viene un multi con dos variables (f y x)?
   | Let Par Binder (Rec Multi) [Multi] term term
-  -- falta ver el comentario en ss.pdf del print parcialmente aplicado
+  -- TODO falta ver el comentario en ss.pdf del print parcialmente aplicado
   deriving (Functor)
 
 newtype Term = T {unT :: Tm Term}
 
 data Ty
-  = Nat
+  = Nat -- TODO este se puede sacar
   | ParTy Ty
   | Arrow Ty Ty
   | Alias Ident
   deriving (Eq)
 
-tyFold :: [Ty] -> Ty
-tyFold = foldr1 Arrow
-
--- Instancias para abreviar cuando depuramos
 instance Num Literal where
   fromInteger = N . fromInteger
 
@@ -90,8 +92,11 @@ instance IsString (Tm t) where
 
 deriving instance IsString Term
 
+-- Instancias para abreviar cuando depuramos
+
 -- deriving instance Show Ident
 instance Show Ident where
+  show :: Ident -> String
   show = \case
     VarId s -> s
     TyId s -> s
@@ -120,7 +125,7 @@ instance Show Ty where
   show = \case
     Nat -> "__Nat__"
     ParTy t -> "(" <> show t <> ")"
-    Arrow t t' -> "|" <> show t <> " -> " <> show t' <> "|"
+    Arrow t t' -> show t <> " -> " <> show t'
     Alias n -> show n
 
 deriving instance (Show a) => Show (Rec a)

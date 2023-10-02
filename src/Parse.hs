@@ -10,13 +10,9 @@
 -- License     : GPL-3
 -- Maintainer  : mauro@fceia.unr.edu.ar
 -- Stability   : experimental
-module Parse (term, Parse.parse, runP, P, program, declarationOrTerm) where
+module Parse (P, term, program, declarationOrTerm, whiteSpace) where
 
 import Common
--- import Data.Char ( isNumber, ord )
-
--- ( GenLanguageDef(..), emptyDef )
-
 import Control.Monad.Identity (Identity)
 import Data.Char
 import Data.Composition
@@ -26,7 +22,7 @@ import Text.Parsec hiding (parse, runP)
 import Text.Parsec.Expr qualified as Ex
 import Text.Parsec.Token qualified as Tok
 import Text.ParserCombinators.Parsec.Language
-import Prelude hiding (const)
+import Prelude
 
 type P = Parsec String ()
 
@@ -56,7 +52,7 @@ langDef =
           "Nat",
           "type"
         ],
-      reservedOpNames = ["->", ":", ";", "=", "+", "-", "!", " "]
+      reservedOpNames = ["->", ":", ";", "=", "+", "-", "!"]
     }
 
 whiteSpace :: P ()
@@ -174,7 +170,7 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
         <|> T . Var <$> varIdent -- <*> getPos
         <?> "atom"
 
-    -- | Nota el parser app también parsea un solo atom.
+    -- \| Nota el parser app también parsea un solo atom.
     app :: P Term
     app = do
       f <- atom
@@ -271,36 +267,35 @@ declaration = letDecl <|> typeDecl
     letDecl = do
       reserved "let"
       core <|> rec_ <|> nRec
-        where
-          core :: P Declaration
-          core = do
-            b <- binder P
-            reservedOp "="
-            t <- term
-            return $ LetDecl P b NoRec [] t
+      where
+        core :: P Declaration
+        core = do
+          b <- binder P
+          reservedOp "="
+          t <- term
+          return $ LetDecl P b NoRec [] t
 
-          rec_ :: P Declaration
-          rec_ = do
-            reserved "rec"
-            f <- varIdent
-            x <- multi
-            bs <- many multi
-            reservedOp ":"
-            tau <- ty
-            reservedOp "="
-            t <- term
-            return $ LetDecl NP (bind f tau) (Rec x) bs t
+        rec_ :: P Declaration
+        rec_ = do
+          reserved "rec"
+          f <- varIdent
+          x <- multi
+          bs <- many multi
+          reservedOp ":"
+          tau <- ty
+          reservedOp "="
+          t <- term
+          return $ LetDecl NP (bind f tau) (Rec x) bs t
 
-          nRec :: P Declaration
-          nRec = do
-            f <- varIdent
-            bs <- many multi
-            reservedOp ":"
-            tau <- ty
-            reservedOp "="
-            t <- term
-            return $ LetDecl NP (bind f tau) NoRec bs t
-
+        nRec :: P Declaration
+        nRec = do
+          f <- varIdent
+          bs <- many multi
+          reservedOp ":"
+          tau <- ty
+          reservedOp "="
+          t <- term
+          return $ LetDecl NP (bind f tau) NoRec bs t
 
 -- | Parser de programas (listas de declaraciones)
 program :: P [Declaration]
@@ -322,6 +317,3 @@ parse :: P a -> String -> a
 parse p s = case runP p s "" of
   Right t -> t
   Left e -> error ("no parse: " ++ show s)
-
-test :: Show a => P a -> String -> IO ()
-test p = parseTest (whiteSpace *> p <* eof)

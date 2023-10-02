@@ -36,6 +36,7 @@ executable compiladores2023
     MonadFD4
     Parse
     PPrint
+    Scaffolding
     Subst
     Surf
     TypeChecker

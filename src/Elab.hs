@@ -1,5 +1,3 @@
--- {-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE LambdaCase #-}
 
 -- |
 -- Module      : Elab
@@ -13,7 +11,6 @@
 -- fully named (@STerm) a locally closed (@Term@)
 module Elab where
 
-import Common (abort)
 import Core
 import Data.Bifunctor
 import Data.Default
@@ -21,6 +18,7 @@ import Data.List.NonEmpty
 import Data.Maybe
 import Subst
 import Surf qualified as S
+import Common
 
 -- | 'term' transforma variables ligadas en índices de de Bruijn
 -- en un término dado.
@@ -114,11 +112,11 @@ multi gamma (is, tau) = toList $ fmap (\i -> (ident i, ty gamma tau)) is
 ty :: [Binder] -> S.Ty -> Ty
 ty gamma = \case
   S.Nat -> Nat
-  S.ParTy t -> r t
-  S.Arrow t t' -> Arrow (r t) (r t')
-  S.Alias n -> fromMaybe (abort "alias no definido") (lookup (ident n) gamma)
+  S.ParTy t -> go t
+  S.Arrow t t' -> Arrow (go t) (go t')
+  S.Alias n -> let _n = ident n in fromMaybe (Named _n) (lookup _n gamma)
   where
-    r = ty gamma
+    go = ty gamma
 
 literal :: S.Literal -> Literal
 literal = \case
@@ -126,15 +124,22 @@ literal = \case
   S.S s -> S s
 
 binaryOp :: S.BinaryOp -> BinaryOp
-binaryOp S.Add = Add
-binaryOp S.Sub = Sub
+binaryOp = \case
+  S.Add -> Add
+  S.Sub -> Sub
 
-{-
-elabDeclaration :: [(Name, Ty)] -> S.Declaration -> Decl (Either Term Ty)
-elabDeclaration types decl =
-  Decl {name = S.name decl, pos = S.pos decl, body = elaboratedBody}
-  where
-    elaboratedBody = case S.body decl of
-      S.LetDecl sTerm -> Left $ elabTerm types sTerm
-      S.TypeDecl sType -> Right $ elabType types sType
--}
+-- TODO sacar de las declaraciones de términos la info que necesitamos para agrandar el
+-- entorno global.
+-- TODO  Either (Decl Term) (Decl Ty) \cong Decl (Either Term Ty)
+-- ahora está roto en el driver
+declaration :: [Binder] -> S.Declaration -> Either (Decl Term) (Decl Ty)
+declaration gamma = \case
+  S.LetDecl p f r xs t -> Left $ Decl {name = ident $ fst f , pos = def, body = _body}
+    where _body = term gamma (S.T $ S.Let p f r xs t def)
+  S.TypeDecl b -> Right $ Decl {name = ident $ fst b , pos = def, body = _body}
+    where _body = ty gamma $ snd b
+
+
+
+
+

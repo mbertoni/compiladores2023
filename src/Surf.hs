@@ -1,12 +1,11 @@
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TupleSections #-}
-
 module Surf where
 
+import Common
+import Data.Bifunctor
+import Data.Char
 import Data.List.NonEmpty
 import Data.String (IsString (..))
-import Data.Bifunctor
+import Data.Default
 
 data Ident
   = VarId {unVarId :: String}
@@ -87,12 +86,26 @@ deriving instance Num Term
 instance IsString Literal where
   fromString = S
 
+instance IsString Ident where
+  fromString s = case s of
+    (c : _) | isUpper c -> TyId s
+    (c : _) | isLower c -> VarId s
+    _ -> abort "fromString Ident"
+
 instance IsString (Tm t) where
   fromString = Lit . fromString
 
 deriving instance IsString Term
 
 -- Instancias para abreviar cuando depuramos
+
+instance Default Literal where
+  def = N 0
+
+instance Default t => Default (Tm t) where
+  def = Lit def
+
+deriving instance Default Term
 
 -- deriving instance Show Ident
 instance Show Ident where

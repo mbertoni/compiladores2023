@@ -20,8 +20,10 @@ extra-source-files:
   ChangeLog.md
   README.md
 
+
+
 executable compiladores2023
-  main-is:          Main.hs
+  main-is:            Main.hs
 
   -- Modules included in this executable, other than Main.
   other-modules:
@@ -40,13 +42,28 @@ executable compiladores2023
     Subst
     Surf
     TypeChecker
+  
+  hs-source-dirs:     src
+
+  default-language:   GHC2021
 
   ghc-options:
     -haddock -threaded -rtsopts -with-rtsopts=-N -fwarn-tabs
     -fwarn-unused-imports -fwarn-missing-signatures
     -fwarn-name-shadowing -fwarn-incomplete-patterns -fwrite-ide-info
 
-  -- other-extensions:
+  default-extensions:
+    LambdaCase
+    OverloadedRecordDot
+    OverloadedStrings
+    PartialTypeSignatures
+    RecordWildCards
+    TupleSections
+
+  other-extensions:
+    PatternSynonyms
+    GADTs
+
   build-depends:
     , base                         >=4.17
     , binary
@@ -65,6 +82,3 @@ executable compiladores2023
     , prettyprinter
     , prettyprinter-ansi-terminal
     , text
-
-  hs-source-dirs:   src
-  default-language: GHC2021

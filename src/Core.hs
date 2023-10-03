@@ -104,7 +104,7 @@ instance (Default a) => IsString (Tm a b) where
   fromString = Lit def . fromString
 
 instance Default Ty where
-  def = Named "Unit"
+  def = Nat -- Named "Unit"
 
 instance Default Literal where
   def = U ()

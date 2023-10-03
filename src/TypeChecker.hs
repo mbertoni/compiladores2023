@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
 
 -- |
 -- Module      : Typechecker
@@ -90,7 +89,7 @@ typeError ::
   -- | no retorna, devuelve forall a
   (forall a. m a)
 typeError t s = do
-  ppt <- pp t
+  ppt <- ppTTerm t
   failPosFD4 (getPos t) $ "Error de tipo en " ++ ppt ++ "\n" ++ s
 
 -- | 'expect' chequea que el tipo esperado sea igual al que se obtuvo

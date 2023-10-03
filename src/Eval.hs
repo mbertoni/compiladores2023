@@ -12,7 +12,7 @@ module Eval where
 import Common (abort)
 import Core
 import MonadFD4 (MonadFD4, failFD4, lookupDecl, printFD4)
-import PPrint (pp, ppName)
+import PPrint (ppTTerm, ppName)
 import Subst (subst, subst2)
 
 -- | Semántica de operadores binarios
@@ -42,7 +42,7 @@ eval (Pnt p lit t) = do
     Lit _ (N n) -> do
       printFD4 (unS lit ++ show n)
       return te
-    _ -> abort "Error de tipo en runtime! : Print"
+    _ -> abort "Error de tipo en runtime!: Print"
 eval (BOp p op t u) = do
   te <- eval t
   ue <- eval u
@@ -51,7 +51,7 @@ eval (BOp p op t u) = do
       return $
         Lit p (N (semOp op n m))
     _ -> do
-      pt <- pp te
+      pt <- ppTTerm te
       abort $ "Error de tipo en runtime!: BinaryOp " ++ pt
 eval (IfZ p c t e) = do
   ce <- eval c

@@ -22,6 +22,7 @@ data Pos
   | -- | Posición en un archivo.
     Pos !Line !Column
 
+
 instance Semigroup Pos where
   i <> NoPos = i
   _ <> i = i
@@ -31,7 +32,7 @@ instance Monoid Pos where
 
 instance Show Pos where
   show (Pos line column) = "(" ++ show line ++ "," ++ show column ++ ")"
-  show NoPos = ""
+  show NoPos = "_"
 
 instance Default Pos where
   def = NoPos

@@ -1,6 +1,5 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
+-- Ojo que esto es un anzuelo
 
 -- |
 -- Module      : Subst

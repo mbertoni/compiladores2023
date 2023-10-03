@@ -1,7 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
--- {-# LANGUAGE OverloadedRecordDot #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use <$>" #-}
 
 -- |
 -- Module      : MonadFD4
@@ -41,12 +40,13 @@ import Common
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
-import Errors (Error (..))
-import Global
 import Core
+import Errors
+import Global
 import System.IO
 
-{-# ANN module "HLint ignore Use <$>" #-}
+  -- | TODO: Esta debería ser la forma de usar hlint, pero da ambiguous type variable
+-- {-# ANN module "HLint ignore Use <$>" #-}
 
 -- * La clase 'MonadFD4'
 
@@ -98,12 +98,12 @@ eraseLastFileDecls = do
   s <- get
   let (_, terms) = splitAt (typeDeclNumber s) (termEnvironment s)
       (_, types) = splitAt (typeDeclNumber s) (typeContext s)
-  modify (\s -> s {termEnvironment = terms, termDeclNumber = 0, typeContext = types, typeDeclNumber = 0})
+  modify (\s' -> s' {termEnvironment = terms, termDeclNumber = 0, typeContext = types, typeDeclNumber = 0})
 
 lookupDecl :: (MonadFD4 m) => Name -> m (Maybe TTerm)
-lookupDecl nm = do
+lookupDecl name = do
   s <- get
-  case filter (hasName nm) (termEnvironment s) of
+  case filter (hasName name) (termEnvironment s) of
     (Decl {body = e}) : _ -> return (Just e)
     [] -> return Nothing
   where
@@ -147,7 +147,7 @@ type FD4 = ReaderT Conf (StateT GlEnv (ExceptT Error IO))
 -- | Esta es una instancia vacía, ya que 'MonadFD4' no tiene funciones miembro.
 instance MonadFD4 FD4
 
--- 'runFD4\'' corre una computación de la mónad 'FD4' en el estado inicial 'Global.initialEnv'
+-- 'runFD4\'' corre una computación de la mónada 'FD4' en el estado inicial 'Global.initialEnv'
 runFD4' :: FD4 a -> Conf -> IO (Either Error (a, GlEnv))
 runFD4' c conf = runExceptT $ runStateT (runReaderT c conf) initialEnv
 

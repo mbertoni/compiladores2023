@@ -1,6 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
 {-# HLINT ignore "Use <$>" #-}
 
 -- |
@@ -10,7 +8,7 @@
 -- License     : GPL-3
 -- Maintainer  : mauro@fceia.unr.edu.ar
 -- Stability   : experimental
-module Parse (P, term, program, declarationOrTerm, whiteSpace) where
+module Parse (P, term, program, declarationOrTerm, whiteSpace, runP) where
 
 import Common
 import Control.Monad.Identity (Identity)
@@ -317,3 +315,7 @@ parse :: P a -> String -> a
 parse p s = case runP p s "" of
   Right t -> t
   Left e -> error ("no parse: " ++ show s)
+
+-- Este para probar en ghci
+test :: (Show a) => P a -> String -> IO ()
+test parser = parseTest (Parse.whiteSpace *> parser <* eof)

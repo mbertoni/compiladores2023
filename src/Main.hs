@@ -1,7 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
--- {-# LANGUAGE OverloadedRecordDot #-}
-
 -- |
 -- Module      : Main
 -- Description : Compilador de FD4.
@@ -22,14 +18,14 @@ import qualified Core as C
 import Data.Char (isSpace)
 import Data.List (intercalate, isPrefixOf, nub)
 import Data.Maybe (fromMaybe)
-import Elab (elabDeclaration, elabTerm)
+import Elab (declaration, term, ident)
 import Errors
 import Eval (eval)
 import Global
 import MonadFD4
 import Options.Applicative
-import PPrint (pp, ppTermDecl, ppTy, ppTypeDecl)
-import Parse (P, declOrTm, program, runP, tm)
+import PPrint (ppTTerm, ppTermDecl, ppTy, ppTypeDecl)
+import Parse (P, runP, declarationOrTerm, program, term)
 import qualified Surf as S
 import System.Console.Haskeline
   ( InputT,
@@ -59,7 +55,7 @@ parseMode =
               InteractiveCEK
               ( long "interactiveCEK"
                   <> short 'k'
-                  <> help "Ejecutar interactivamente en la CEK"
+                  <> help "Ejecutar de forma interactiva en la CEK"
               )
             -- <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
             -- <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
@@ -70,10 +66,10 @@ parseMode =
                   <> short 'i'
                   <> help "Ejecutar en forma interactiva"
               )
-            <|> flag Eval Eval (long "eval" <> short 'e' <> help "Evaluar programa")
+            <|> flag Eval Eval (long "eval" <> short 'e' <> help "Evaluar un programa")
         )
     -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")
-    -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonicalización")
+    -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonización")
     -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
     -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
     <*> pure False
@@ -125,8 +121,8 @@ repl args = do
   loop
   where
     loop = do
-      minput <- getInputLine prompt
-      case minput of
+      input <- getInputLine prompt
+      case input of
         Nothing -> return ()
         Just "" -> loop
         Just x -> do
@@ -173,44 +169,41 @@ evalDecl (C.Decl p x e) = do
 handleDeclaration :: (MonadFD4 m) => S.Declaration -> m ()
 handleDeclaration d = do
   m <- getMode
-  s <- get
+  gamma <- gets globalTypeContext
   case m of
-    _ -> case elabDeclaration (globalTypeContext s) d of
-      C.Decl p x (Left term) -> do
-        tt <- tcDecl (C.Decl p x term)
+    _ -> case Elab.declaration gamma d of -- TODO Es un compilador mono-comando, como la canilla!!!
+      Left (C.Decl p x tm) -> do
+        tt <- tcDecl (C.Decl p x tm)
         te <- CEK.eval (C.body tt)
         addTermDecl (C.Decl p x te)
-      C.Decl p x (Right ty) -> do
-        addTypeDecl (C.Decl p x ty)
-    Interactive -> case elabDeclaration (globalTypeContext s) d of
-      C.Decl p x (Left term) -> do
-        tt <- tcDecl (C.Decl p x term)
+      Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
+    Interactive -> case Elab.declaration gamma d of
+      Left (C.Decl p x tm) -> do
+        tt <- tcDecl (C.Decl p x tm)
         te <- CEK.eval (C.body tt)
         addTermDecl (C.Decl p x te)
-      C.Decl p x (Right ty) -> do
-        addTypeDecl (C.Decl p x ty)
+      Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     Typecheck -> do
       f <- getLastFile
       printFD4 ("Chequeando tipos de " ++ f)
-      case elabDeclaration (globalTypeContext s) d of
-        C.Decl p x (Left term) -> do
-          tt <- tcDecl (C.Decl p x term)
+      case Elab.declaration gamma d of
+        Left (C.Decl p x tm) -> do
+          tt <- tcDecl (C.Decl p x tm)
           addTermDecl tt
           ppterm <- ppTermDecl tt
           printFD4 ppterm
-        C.Decl p x (Right ty) -> do
+        Right (C.Decl p x ty) -> do
           addTypeDecl (C.Decl p x ty)
           ppty <- ppTypeDecl (C.Decl p x ty)
           printFD4 ppty
     -- opt <- getOpt
     -- td' <- if opt then optimize td else td
-    Eval -> case elabDeclaration (globalTypeContext s) d of
-      C.Decl p x (Left term) -> do
-        tt <- tcDecl (C.Decl p x term)
+    Eval -> case Elab.declaration gamma d of
+      Left (C.Decl p x tm) -> do
+        tt <- tcDecl (C.Decl p x tm)
         te <- eval (C.body tt)
         addTermDecl (C.Decl p x te)
-      C.Decl p x (Right ty) -> do
-        addTypeDecl (C.Decl p x ty)
+      Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
 
 -- do
 -- td <- typecheckDecl d
@@ -250,8 +243,7 @@ interpretCommand x =
                 ++ "'. Escriba :? para recibir ayuda."
             )
           return Noop
-        [Cmd _ _ f _] -> do
-          return (f t)
+        [Cmd _ _ f _] -> return (f t)
         _ -> do
           putStrLn
             ( "Comando ambiguo, podría ser "
@@ -323,7 +315,7 @@ handleCommand cmd = do
 
 compilePhrase :: (MonadFD4 m) => String -> m ()
 compilePhrase x = do
-  dot <- parseIO "<interactive>" declOrTm x
+  dot <- parseIO "<interactive>" declarationOrTerm x
   case dot of
     Left d -> handleDeclaration d
     Right t -> handleTerm t
@@ -331,32 +323,32 @@ compilePhrase x = do
 handleTerm :: (MonadFD4 m) => S.Term -> m ()
 handleTerm t = do
   s <- get
-  let t' = elabTerm (globalTypeContext s) t
-  tt <- tc t' (globalTypedEnvironment s)
+  let _t = Elab.term (globalTypeContext s) t
+  tt <- tc _t (globalTypedEnvironment s)
   te <- eval tt
-  ppte <- pp te
-  printFD4 (ppte ++ " : " ++ ppTy (C.getTy tt))
+  printout <- ppTTerm te
+  printFD4 (printout ++ " : " ++ ppTy (C.getTy tt))
 
 printPhrase :: (MonadFD4 m) => String -> m ()
-printPhrase x = do
-  x' <- parseIO "<interactive>" tm x
-  s <- get
-  let ex = elabTerm (globalTypeContext s) x'
-  tyenv <- gets globalTypedEnvironment
-  tex <- tc ex tyenv
-  t <- case x' of
-    (S.Var p f) -> fromMaybe tex <$> lookupDecl f
-    _ -> return tex
-  printFD4 "STerm:"
-  printFD4 (show x')
-  printFD4 "TTerm:"
+printPhrase input = do
+  surfTerm <- parseIO "<interactive>" Parse.term input
+  gamma <- gets globalTypeContext
+  let coreTerm = Elab.term gamma surfTerm
+  globals <- gets globalTypedEnvironment
+  coreTTerm <- tc coreTerm globals
+  t <- case surfTerm of
+    (S.T (S.Var f)) -> fromMaybe coreTTerm <$> lookupDecl (ident f)
+    _ -> return coreTTerm
+  printFD4 "Surf Term:"
+  printFD4 (show surfTerm)
+  printFD4 "Core TTerm:"
   printFD4 (show t)
 
 typeCheckPhrase :: (MonadFD4 m) => String -> m ()
 typeCheckPhrase x = do
-  t <- parseIO "<interactive>" tm x
+  t <- parseIO "<interactive>" Parse.term x
   s <- get
-  let t' = elabTerm (globalTypeContext s) t
+  let t' = Elab.term (globalTypeContext s) t
   tt <- tc t' (globalTypedEnvironment s)
   let ty = C.getTy tt
   printFD4 (ppTy ty)

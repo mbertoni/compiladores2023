@@ -8,7 +8,7 @@
 module Errors where
 
 import Common
-import Text.Parsec.Error (ParseError)
+import Text.Parsec.Error (ParseError(..))
 
 -- Agregar más, y source positions
 data Error

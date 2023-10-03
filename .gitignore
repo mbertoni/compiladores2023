@@ -4,3 +4,4 @@ dist-newstyle/*
 .vscode/*
 Teoría/*
 .history
+.DS_Store

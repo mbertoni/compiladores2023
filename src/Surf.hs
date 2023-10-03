@@ -110,13 +110,13 @@ deriving instance Default Term
 -- deriving instance Show Ident
 instance Show Ident where
   show :: Ident -> String
-  show = \case
+  show x = case x of
     VarId s -> s
     TyId s -> s
 
 -- deriving instance Show Literal
 instance Show Literal where
-  show = \case
+  show x = case x of
     N n -> show n
     S s -> show s
 
@@ -126,7 +126,7 @@ instance Show UnaryOp where
 
 -- deriving instance Show BinaryOp
 instance Show BinaryOp where
-  show = \case
+  show x = case x of
     Add -> "+"
     Sub -> "-"
 
@@ -135,7 +135,7 @@ instance Show Term where show = show . unT
 
 -- deriving instance Show Ty
 instance Show Ty where
-  show = \case
+  show x = case x of
     Nat -> "__Nat__"
     ParTy t -> "(" <> show t <> ")"
     Arrow t t' -> show t <> " -> " <> show t'

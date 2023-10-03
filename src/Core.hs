@@ -1,10 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
-
 -- |
 -- Module      : Core
 -- Description : AST de términos, declaraciones y tipos
@@ -20,21 +13,19 @@
 --   - Variables
 module Core where
 
-import Common (Pos (..), abort)
-import Data.List.Extra (nubSort)
-import Data.String (IsString (..))
+import Common
 import Data.Default
-
-typeMerge :: [Ty] -> Ty
-typeMerge [] = abort "No types to merge"
-typeMerge [t] = t
-typeMerge (t : ts) = Arrow t (typeMerge ts)
+import Data.String
+import Data.List.Extra
 
 type Name = String
+
+type Binder = (Name, Ty)
 
 data Literal
   = N {unN :: Int}
   | S {unS :: String}
+  | U {unU :: ()}
   deriving (Show)
 
 data BinaryOp = Add | Sub
@@ -52,7 +43,8 @@ data Decl a = Decl
 
 -- | AST de Tipos
 data Ty
-  = Nat
+  = Named Name -- Llevo alias, o expando, o lo dejo en la info
+  | Nat | String | Unit -- TODO se pueden sacar
   | Arrow Ty Ty
   deriving (Show, Eq)
 
@@ -74,6 +66,7 @@ data Tm info var
 
 -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición
 type Term = Tm Pos Var
+
 
 -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición y tipo
 type TTerm = Tm (Pos, Ty) Var
@@ -101,14 +94,22 @@ instance (Show info, Show var) => Show (Scope2 info var) where
 instance Num Literal where
   fromInteger = N . fromInteger
 
-instance Default a => Num (Tm a b) where
+instance (Default a) => Num (Tm a b) where
   fromInteger = Lit def . fromInteger
 
 instance IsString Literal where
   fromString = S
 
-instance Default a => IsString (Tm a b) where
+instance (Default a) => IsString (Tm a b) where
   fromString = Lit def . fromString
+
+instance Default Ty where
+  def = Named "Unit"
+
+instance Default Literal where
+  def = U ()
+instance Default info => Default (Tm info var) where
+  def = Lit def def
 
 -- | Obtiene la info en la raíz del término.
 getInfo :: Tm info var -> info
@@ -155,6 +156,3 @@ freeVars tm = nubSort $ go tm []
     go (IfZ _ c t e) xs = go c $ go t $ go e xs
     go (Lit _ _) xs = xs
     go (Let _ _ _ e (Sc1 t)) xs = go e (go t xs)
-
-
-

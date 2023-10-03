@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 -- |
 -- Module      : Core
 -- Description : AST de términos, declaraciones y tipos
@@ -14,9 +16,12 @@
 module Core where
 
 import Common
+import Data.Bifoldable
+import Data.Bifunctor
+import Data.Bitraversable
 import Data.Default
-import Data.String
 import Data.List.Extra
+import Data.String
 
 type Name = String
 
@@ -37,14 +42,14 @@ data Decl a = Decl
     name :: Name,
     body :: a
   }
-  deriving (Show)
-
--- deriving instance Show Pos -- TODO mmmm.. no entiendo
+  deriving (Show, Functor)
 
 -- | AST de Tipos
 data Ty
   = Named Name -- Llevo alias, o expando, o lo dejo en la info
-  | Nat | String | Unit -- TODO se pueden sacar
+  | Nat -- TODO se pueden sacar y los agregasmos al contexto inicial
+  | String -- TODO se pueden sacar
+  | Unit -- TODO se pueden sacar
   | Arrow Ty Ty
   deriving (Show, Eq)
 
@@ -62,14 +67,15 @@ data Tm info var
   | Fix info Name Ty Name Ty (Scope2 info var)
   | IfZ info (Tm info var) (Tm info var) (Tm info var)
   | Let info Name Ty (Tm info var) (Scope info var)
-  deriving (Show, Functor)
+  deriving (Show, Functor, Bifunctor, Bifoldable, Bitraversable)
 
 -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición
 type Term = Tm Pos Var
 
-
 -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición y tipo
 type TTerm = Tm (Pos, Ty) Var
+
+type Module = [Decl TTerm] -- Represnta un archivo de FD4
 
 data Var
   = Bound !Int
@@ -79,10 +85,10 @@ data Var
 
 -- Scope es un término con una o dos variables que escapan.
 newtype Scope info var = Sc1 {unSc1 :: Tm info var}
-  deriving (Functor)
+  deriving newtype (Functor, Bifunctor)
 
 newtype Scope2 info var = Sc2 {unSc2 :: Tm info var}
-  deriving (Functor)
+  deriving newtype (Functor, Bifunctor)
 
 instance (Show info, Show var) => Show (Scope info var) where
   show (Sc1 t) = "{" ++ show t ++ "}"
@@ -108,10 +114,23 @@ instance Default Ty where
 
 instance Default Literal where
   def = U ()
-instance Default info => Default (Tm info var) where
+
+instance (Default info) => Default (Tm info var) where
   def = Lit def def
 
 -- | Obtiene la info en la raíz del término.
+getInfo :: (_) => Tm info var -> info -- instance monoid pos hecha a la derecha, los tipos con subtyping... TODO 2031
+getInfo = bifoldMap id (const mempty) -- ver bi-traversable
+
+-- | TODO Unlawful! Es para probar
+instance Semigroup Ty where
+  (<>) = Arrow -- NO es asociativo
+
+-- | TODO Unlawful! Es para probar
+instance Monoid Ty where
+  mempty = Unit
+
+{-
 getInfo :: Tm info var -> info
 getInfo (Var i _) = i
 getInfo (Lit i _) = i
@@ -122,7 +141,7 @@ getInfo (Fix i _ _ _ _ _) = i
 getInfo (IfZ i _ _ _) = i
 getInfo (Let i _ _ _ _) = i
 getInfo (BOp i _ _ _) = i
-
+-}
 getTy :: TTerm -> Ty
 getTy = snd . getInfo
 
@@ -130,6 +149,10 @@ getPos :: TTerm -> Pos
 getPos = fst . getInfo
 
 -- | map para la info de un término
+mapInfo :: (a -> b) -> Tm a var -> Tm b var
+mapInfo = first
+
+{-
 mapInfo :: (a -> b) -> Tm a var -> Tm b var
 mapInfo f (Var i x) = Var (f i) x
 mapInfo f (Lit i x) = Lit (f i) x
@@ -140,6 +163,7 @@ mapInfo f (BOp i x y z) = BOp (f i) x (mapInfo f y) (mapInfo f z)
 mapInfo f (Fix i x xty y yty (Sc2 z)) = Fix (f i) x xty y yty (Sc2 $ mapInfo f z)
 mapInfo f (IfZ i x y z) = IfZ (f i) (mapInfo f x) (mapInfo f y) (mapInfo f z)
 mapInfo f (Let i x xty y (Sc1 z)) = Let (f i) x xty (mapInfo f y) (Sc1 $ mapInfo f z)
+-}
 
 -- | Obtiene los nombres de variables (abiertas o globales) de un término.
 freeVars :: Tm info Var -> [Name]
@@ -156,3 +180,19 @@ freeVars tm = nubSort $ go tm []
     go (IfZ _ c t e) xs = go c $ go t $ go e xs
     go (Lit _ _) xs = xs
     go (Let _ _ _ e (Sc1 t)) xs = go e (go t xs)
+
+class Fremen a where
+  fre :: a -> [Name] -> [Name] -- d-list?
+
+instance Fremen Var where
+  fre = \case
+    Free n -> (n :)
+    Global n -> (n :)
+    _ -> id
+
+deriving newtype instance (Fremen bae) => Fremen (Scope info bae)
+
+deriving newtype instance (Fremen bae) => Fremen (Scope2 info bae)
+
+instance (Fremen bae) => Fremen (Tm info bae) where
+  fre _ = id -- TODO

@@ -61,9 +61,9 @@ data Tm term
   | IfZ term term term
   | App term term
   | Fun (NonEmpty Multi) term
-  | Fix Binder Binder [Multi] term -- TODO y si viene un multi con dos variables (f y x)?
+  | Fix Binder Binder [Multi] term -- TODO y si viene un multi con dos variables (f y x)? Escribir TEST para que falle
   | Let Par Binder (Rec Multi) [Multi] term term
-  -- TODO falta ver el comentario en ss.pdf del print parcialmente aplicado
+  -- TODO falta ver el comentario en ss.pdf del print parcialmente aplicado - 
   deriving (Functor)
 
 newtype Term = T {unT :: Tm Term}
@@ -81,7 +81,7 @@ instance Num Literal where
 instance Num (Tm t) where
   fromInteger = Lit . fromInteger
 
-deriving instance Num Term
+deriving newtype instance Num Term
 
 instance IsString Literal where
   fromString = S
@@ -95,7 +95,7 @@ instance IsString Ident where
 instance IsString (Tm t) where
   fromString = Lit . fromString
 
-deriving instance IsString Term
+deriving newtype instance IsString Term
 
 -- Instancias para abreviar cuando depuramos
 
@@ -105,7 +105,7 @@ instance Default Literal where
 instance Default t => Default (Tm t) where
   def = Lit def
 
-deriving instance Default Term
+deriving newtype instance Default Term
 
 -- deriving instance Show Ident
 instance Show Ident where

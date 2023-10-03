@@ -71,7 +71,7 @@ open2 nm1 nm2 (Sc2 t) = varChanger (\_ p n -> Var p (Free n)) bnd t
 -- generar ningún nombre, y por lo tanto evitamos la necesidad de
 -- nombres frescos.
 subst :: Tm info Var -> Scope info Var -> Tm info Var
-subst n (Sc1 m) = varChanger (\_ p n -> Var p (Free n)) bnd m
+subst n (Sc1 m) = varChanger (\_ p nm -> Var p (Free nm)) bnd m
   where
     bnd depth p i
       | i < depth = Var p (Bound i)

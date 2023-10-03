@@ -42,7 +42,7 @@ executable compiladores2023
     Subst
     Surf
     TypeChecker
-  
+
   hs-source-dirs:     src
 
   default-language:   GHC2021
@@ -54,15 +54,19 @@ executable compiladores2023
 
   default-extensions:
     LambdaCase
-    NamedWildCards
-    OverloadedRecordDot
     OverloadedStrings
-    PartialTypeSignatures
+    OverloadedRecordDot
     RecordWildCards
-    TupleSections
+    DisambiguateRecordFields
+    DuplicateRecordFields
+    PartialTypeSignatures
+    NamedWildCards
+    PatternSynonyms
+    DeriveAnyClass
+    DerivingStrategies
+    DerivingVia
 
   other-extensions:
-    PatternSynonyms
     GADTs
 
   build-depends:

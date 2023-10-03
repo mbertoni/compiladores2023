@@ -23,14 +23,14 @@ data GlEnv = GlEnv
     termDeclNumber :: Int,
     -- | Declaraciones de tipos
     typeContext :: [Decl Ty],
-    -- | Entorno con declaraciones globales ya tipadas
+    -- | Entorno con declaraciones globales ya con su tipo
     termEnvironment :: [Decl TTerm]
   }
 
-globalTypedEnvironment :: GlEnv -> [(Name, Ty)]
+globalTypedEnvironment :: GlEnv -> [Binder]
 globalTypedEnvironment g = map (\(Decl _ n tt) -> (n, getTy tt)) (termEnvironment g)
 
-globalTypeContext :: GlEnv -> [(Name, Ty)]
+globalTypeContext :: GlEnv -> [Binder]
 globalTypeContext g = map (\(Decl _ n ty) -> (n, ty)) (typeContext g)
 
 {-
@@ -41,15 +41,14 @@ data Mode
   | Typecheck
   | Eval
   | InteractiveCEK
-
--- \| Bytecompile
+  | ByteCompile
 -- \| RunVM
 -- \| CC
 -- \| Canon
 -- \| Assembler
 -- \| Build
 data Conf = Conf
-  { optimize :: Bool, --  ^ True, si estan habilitadas las optimizaciones.
+  { optimize :: Bool, --  ^ True, si están habilitadas las optimizaciones.
     modo :: Mode
   }
 

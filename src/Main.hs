@@ -57,7 +57,7 @@ parseMode =
                   <> short 'k'
                   <> help "Ejecutar de forma interactiva en la CEK"
               )
-            -- <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
+            <|> flag' ByteCompile (long "byteCompile" <> short 'm' <> help "Compilar a la Macchina")
             -- <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
             <|> flag
               Interactive
@@ -168,10 +168,10 @@ evalDecl (C.Decl p x e) = do
 
 handleDeclaration :: (MonadFD4 m) => S.Declaration -> m ()
 handleDeclaration d = do
-  m <- getMode
   gamma <- gets globalTypeContext
+  m <- getMode
   case m of
-    _ -> case Elab.declaration gamma d of -- TODO Es un compilador mono-comando, como la canilla!!!
+    InteractiveCEK -> case Elab.declaration gamma d of -- TODO Es un compilador mono-comando, como la canilla!!!
       Left (C.Decl p x tm) -> do
         tt <- tcDecl (C.Decl p x tm)
         te <- CEK.eval (C.body tt)
@@ -190,12 +190,10 @@ handleDeclaration d = do
         Left (C.Decl p x tm) -> do
           tt <- tcDecl (C.Decl p x tm)
           addTermDecl tt
-          ppterm <- ppTermDecl tt
-          printFD4 ppterm
+          printFD4 =<< ppTermDecl tt
         Right (C.Decl p x ty) -> do
           addTypeDecl (C.Decl p x ty)
-          ppty <- ppTypeDecl (C.Decl p x ty)
-          printFD4 ppty
+          printFD4 =<< ppTypeDecl (C.Decl p x ty)
     -- opt <- getOpt
     -- td' <- if opt then optimize td else td
     Eval -> case Elab.declaration gamma d of
@@ -204,6 +202,7 @@ handleDeclaration d = do
         te <- eval (C.body tt)
         addTermDecl (C.Decl p x te)
       Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
+    ByteCompile -> return ()
 
 -- do
 -- td <- typecheckDecl d

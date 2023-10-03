@@ -18,7 +18,6 @@ import Data.List.NonEmpty
 import Data.Maybe
 import Subst
 import Surf qualified as S
-import Common
 
 -- | 'term' transforma variables ligadas en índices de de Bruijn
 -- en un término dado.

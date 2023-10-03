@@ -18,19 +18,23 @@ import Data.Binary.Get (getWord32le, isEmpty)
 import Data.Binary.Put (putWord32le)
 import Data.ByteString.Lazy qualified as BS
 import Data.Char
+import Data.Default
 import Data.List (intercalate)
 import Core
 import Common
+import Global
 import MonadFD4
 import Subst -- será que esto es una pista que nos están tirando?
 import Data.Functor.Classes (eq1)
+import System.Process.Extra (CreateProcess(env))
+import Data.String (String)
 
 type Opcode = Int
 
 type Bytecode = [Int]
 type Env = [Value]
-
 type Stack = [Value]
+
 data Value = Natural Int | Fun Env Bytecode | RetAd Env Bytecode
   deriving Show
 
@@ -122,7 +126,7 @@ showOps (x : xs) = show x : showOps xs
 showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
 
-bcc :: (MonadFD4 m) => TTerm -> m Bytecode
+bcc :: (MonadFD4 m) => Term -> m Bytecode
 bcc (Var info (Bound i)) = return (ACCESS:[i]) -- Creo que las info desaparecen, again
 -- bcc (Var _ (Free n)) = failFD4 "No puede haber Frees"
 -- bcc (Var _ (Global n)) = failFD4 "Los TTerm deberían estar resueltos ya"
@@ -170,13 +174,13 @@ string2bc = map ord
 bc2string :: Bytecode -> String
 bc2string = map chr
 
-type Module = [Decl TTerm] -- Creo que sería así. Definimos un programa como una lista de declaraciones
+type Module = [Decl Term] -- Creo que sería así. Definimos un programa como una lista de declaraciones
 byteCompileModule :: (MonadFD4 m) => Module -> m Bytecode
 byteCompileModule m = do  tt <- declIntoTerm m
                           bcc tt
                       
   
-declIntoTerm :: (MonadFD4 m) => Module -> m TTerm
+declIntoTerm :: (MonadFD4 m) => Module -> m Term
 declIntoTerm [] = failFD4 "Módulo vacío"
 -- declIntoTerm [t] = Let (t.pos) t.name Ty (Tm (t.pos) var) (Sc1 (Tm info var)) 
 declIntoTerm _ = failFD4 "unimplemented"
@@ -200,24 +204,37 @@ runBC bc = run bc [] []
 
 
 run :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
-run (ACCESS:i:c) e s = run c e ((e!!i):s)
-run (CONST:n:c) e s = run c e (Natural n:s)
-run (ADD:c) e (Natural n:Natural m:s) = run c e (Natural (m+n):s)
-run (SUB:c) e (Natural y:Natural x:s) = run c e (Natural (max (x-y) 0):s) 
-run (CALL:c) e (v:Fun ef cf:s) = run cf (v:ef) (RetAd e c:s)  
-run (FUNCTION:size:c) e s = run (drop size c) e (Fun e cf:s)
+run ck@(ACCESS:i:c) e s = do  printState ck e s
+                              run c e ((e!!i):s)
+run ck@(CONST:n:c) e s = do printState ck e s
+                            run c e (Natural n:s)
+run ck@(ADD:c) e (Natural n:Natural m:s) = do printState ck e s
+                                              run c e (Natural (m+n):s)
+run ck@(SUB:c) e (Natural y:Natural x:s) = do printState ck e s
+                                              run c e (Natural (max (x-y) 0):s) 
+run ck@(CALL:c) e (v:Fun ef cf:s) = do  printState ck e s
+                                        run cf (v:ef) (RetAd e c:s)  
+run ck@(FUNCTION:size:c) e s = do printState ck e s
+                                  run (drop size c) e (Fun e cf:s)
   where cf = take size c
-run (PRINTN:c) e (Natural n:s) = do printFD4 (show n) 
-                                    run c e (Natural n:s)
-run (PRINT:c) e s = do  printFD4 (show strToPrint) 
-                        run cDropped e s
+run ck@(PRINTN:c) e (Natural n:s) = do  printState ck e s
+                                        printFD4 (show n) 
+                                        run c e (Natural n:s)
+run ck@(PRINT:c) e s = do printState ck e s
+                          printFD4 (show strToPrint) 
+                          run cDropped e s
   where strToPrint = bc2string (takeUntilNull c)
         cDropped = dropUntilNull c
-run (DROP:c) (v:e) s = run c e s
-run (SHIFT:c) e (v:s) = run c (v:e) s
-run (IFZ:c) e s = run c e s
-run (JUMP:c) e s = failFD4 "Unimplemented Jump"
-run (FIX:c) e (Fun env cf:s) = run c e (Fun ef cf:s)
+run ck@(DROP:c) (v:e) s = do  printState ck e s
+                              run c e s
+run ck@(SHIFT:c) e (v:s) = do printState ck e s
+                              run c (v:e) s
+run ck@(IFZ:c) e s = do printState ck e s
+                        run c e s
+run ck@(JUMP:c) e s = do  printState ck e s
+                          failFD4 "Unimplemented Jump"
+run ck@(FIX:c) e (Fun env cf:s) = do  printState ck e s
+                                      run c e (Fun ef cf:s)
   where ef = Fun ef cf : env 
 run (RETURN:_) _ (v:RetAd e c:s) = run c e (v:s)
 run (STOP:_) _ _ = return ()
@@ -236,3 +253,27 @@ dropUntilNull (c:cs) = case c of
                         NULL -> cs
                         _ -> dropUntilNull cs
 
+testBC :: Term -> IO ()
+testBC t = do res <- runFD4 (bcc t >>= printFD4 . showBC) (Conf False Interactive)
+              case res of (Right r) -> return r
+                          (Left _) -> print "Errorrrrrr"
+
+
+testRun t = runFD4 (runBC (bcc t)) (Conf False Interactive)
+
+
+testRun2 :: MonadFD4 m => Term -> m ()
+testRun2 t = do termm <- bcc t 
+                run termm [] []
+
+printState :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
+printState c e s = do printFD4 (bc2string c)
+                      printFD4 (showVal e)
+                      printFD4 (showVal s)
+                      printFD4 "\n"
+                      return ()
+
+showVal :: Env -> String
+showVal (Natural n :env) = "Nat "++ show n ++ showVal env
+showVal (Fun e bc  :env) = "Fun "++ showVal e ++ showBC bc ++ ": " ++ showVal env
+showVal (RetAd e bc:env) = "Ret "++ showVal e ++ showBC bc ++ ": " ++ showVal env

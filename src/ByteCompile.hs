@@ -24,7 +24,6 @@ import Core
 import Common
 import Global
 import MonadFD4
-import Subst -- será que esto es una pista que nos están tirando?
 import Data.Functor.Classes (eq1)
 import System.Process.Extra (CreateProcess(env))
 import Data.String (String)
@@ -208,16 +207,16 @@ run ck@(ACCESS:i:c) e s = do  printState ck e s
                               run c e ((e!!i):s)
 run ck@(CONST:n:c) e s = do printState ck e s
                             run c e (Natural n:s)
-run ck@(ADD:c) e (Natural n:Natural m:s) = do printState ck e s
+run ck@(ADD:c) e (Natural n:Natural m:s) = do printState ck e (Natural n:Natural m:s)
                                               run c e (Natural (m+n):s)
-run ck@(SUB:c) e (Natural y:Natural x:s) = do printState ck e s
+run ck@(SUB:c) e (Natural y:Natural x:s) = do printState ck e (Natural y:Natural x:s)
                                               run c e (Natural (max (x-y) 0):s) 
-run ck@(CALL:c) e (v:Fun ef cf:s) = do  printState ck e s
+run ck@(CALL:c) e (v:Fun ef cf:s) = do  printState ck e (v:Fun ef cf:s)
                                         run cf (v:ef) (RetAd e c:s)  
 run ck@(FUNCTION:size:c) e s = do printState ck e s
                                   run (drop size c) e (Fun e cf:s)
   where cf = take size c
-run ck@(PRINTN:c) e (Natural n:s) = do  printState ck e s
+run ck@(PRINTN:c) e (Natural n:s) = do  printState ck e (Natural n:s)
                                         printFD4 (show n) 
                                         run c e (Natural n:s)
 run ck@(PRINT:c) e s = do printState ck e s
@@ -225,19 +224,21 @@ run ck@(PRINT:c) e s = do printState ck e s
                           run cDropped e s
   where strToPrint = bc2string (takeUntilNull c)
         cDropped = dropUntilNull c
-run ck@(DROP:c) (v:e) s = do  printState ck e s
+run ck@(DROP:c) (v:e) s = do  printState ck (v:e) s
                               run c e s
-run ck@(SHIFT:c) e (v:s) = do printState ck e s
+run ck@(SHIFT:c) e (v:s) = do printState ck e (v:s)
                               run c (v:e) s
 run ck@(IFZ:c) e s = do printState ck e s
                         run c e s
 run ck@(JUMP:c) e s = do  printState ck e s
                           failFD4 "Unimplemented Jump"
-run ck@(FIX:c) e (Fun env cf:s) = do  printState ck e s
+run ck@(FIX:c) e (Fun env cf:s) = do  printState ck e (Fun env cf:s)
                                       run c e (Fun ef cf:s)
   where ef = Fun ef cf : env 
 run (RETURN:_) _ (v:RetAd e c:s) = run c e (v:s)
-run (STOP:_) _ _ = return ()
+run (STOP:ck) e s = do  printState ck e s
+                        printFD4 $ "Finnnn: " ++ showVal s
+                        return ()
 run _ _ _ = failFD4 "Error en el ByteCode"
 
 takeUntilNull :: Bytecode -> Bytecode
@@ -253,27 +254,31 @@ dropUntilNull (c:cs) = case c of
                         NULL -> cs
                         _ -> dropUntilNull cs
 
+bccWithStop :: (MonadFD4 m) => Term -> m Bytecode
+bccWithStop t = do  bc <- bcc t
+                    return $ bc++[STOP]
+
 testBC :: Term -> IO ()
-testBC t = do res <- runFD4 (bcc t >>= printFD4 . showBC) (Conf False Interactive)
-              case res of (Right r) -> return r
+testBC t = do res <- runFD4 ( bccWithStop t >>= printFD4 . showBC) (Conf False Interactive)
+              case res of (Right r) -> print r
                           (Left _) -> print "Errorrrrrr"
 
+testRun :: Term -> IO ()
+testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
+                case resRun of (Right r) -> print r
+                               (Left _)  -> print "Error"
 
-testRun t = runFD4 (runBC (bcc t)) (Conf False Interactive)
-
-
-testRun2 :: MonadFD4 m => Term -> m ()
-testRun2 t = do termm <- bcc t 
-                run termm [] []
+testRun' :: MonadFD4 m => Term -> m ()
+testRun' t = do bc <- bccWithStop t 
+                runBC bc
 
 printState :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
-printState c e s = do printFD4 (bc2string c)
-                      printFD4 (showVal e)
-                      printFD4 (showVal s)
-                      printFD4 "\n"
+printState c e s = do printFD4 (showBC c ++ " - " ++ showVal e ++ " - " ++ showVal s )
                       return ()
+                      
 
-showVal :: Env -> String
-showVal (Natural n :env) = "Nat "++ show n ++ showVal env
+showVal :: [Value] -> String
+showVal (Natural n :env) = "Nat "++ show n ++ "; " ++ showVal env
 showVal (Fun e bc  :env) = "Fun "++ showVal e ++ showBC bc ++ ": " ++ showVal env
 showVal (RetAd e bc:env) = "Ret "++ showVal e ++ showBC bc ++ ": " ++ showVal env
+showVal [] = "[]"

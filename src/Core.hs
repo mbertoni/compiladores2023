@@ -15,8 +15,8 @@ module Core where
 
 import Common
 import Data.Default
-import Data.String
 import Data.List.Extra
+import Data.String
 
 type Name = String
 
@@ -44,7 +44,9 @@ data Decl a = Decl
 -- | AST de Tipos
 data Ty
   = Named Name -- Llevo alias, o expando, o lo dejo en la info
-  | Nat | String | Unit -- TODO se pueden sacar
+  | Nat
+  | String
+  | Unit -- TODO se pueden sacar
   | Arrow Ty Ty
   deriving (Show, Eq)
 
@@ -67,9 +69,10 @@ data Tm info var
 -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición
 type Term = Tm Pos Var
 
-
 -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición y tipo
 type TTerm = Tm (Pos, Ty) Var
+
+type Module = [Decl TTerm] -- Represnta un archivo de FD4
 
 data Var
   = Bound !Int
@@ -108,7 +111,8 @@ instance Default Ty where
 
 instance Default Literal where
   def = U ()
-instance Default info => Default (Tm info var) where
+
+instance (Default info) => Default (Tm info var) where
   def = Lit def def
 
 -- | Obtiene la info en la raíz del término.

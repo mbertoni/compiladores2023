@@ -8,7 +8,8 @@
 --
 -- Este módulo permite compilar módulos a la Macchina. También provee
 -- una implementación de la Macchina para ejecutar el bytecode.
-module ByteCompile (Bytecode, runBC, bcWrite, bcRead, byteCompileModule, showBC) where
+-- module ByteCompile (Bytecode, runBC, bcWrite, bcRead, byteCompileModule, showBC) where
+module ByteCompile where
 
 import Core hiding (Module)
 import Data.Binary (Binary (get, put), Word32, decode, encode)
@@ -22,7 +23,7 @@ import MonadFD4
 
 type Opcode = Int
 
-type Bytecode = [Int]
+type Bytecode = [Int] -- zafaroni con el utf-32
 
 type Env = [Value]
 
@@ -127,7 +128,7 @@ bcc (Lit _ (N n)) = return $ CONST : [n]
 -- bcc (Lit _ (S s)) = CONST:s:[] -- concatenamos strings? Fallamos?
 bcc (Lam _ _ _ (Sc1 t)) = do
   bct <- bcc t
-  return $ FUNCTION : [length bct] ++ bct ++ [RETURN]
+  return $ FUNCTION : [succ (length bct)] ++ bct ++ [RETURN]
 bcc (App _ t1 t2) = do
   bct1 <- bcc t1
   bct2 <- bcc t2
@@ -198,7 +199,7 @@ runBC bc = run bc [] []
 run :: (MonadFD4 m) => Bytecode -> Env -> Stack -> m ()
 run ck@(ACCESS : i : c) e s = do
   printState ck e s
-  run c e ((e !! i) : s)
+  run c e (e !! i : s)
 run ck@(CONST : n : c) e s = do
   printState ck e s
   run c e (Natural n : s)
@@ -215,7 +216,7 @@ run ck@(FUNCTION : size : c) e s = do
   printState ck e s
   run (drop size c) e (Fun e cf : s)
   where
-    cf = take size c
+    cf = take size c -- usar split
 run ck@(PRINTN : c) e (Natural n : s) = do
   printState ck e (Natural n : s)
   printFD4 (show n)
@@ -223,10 +224,10 @@ run ck@(PRINTN : c) e (Natural n : s) = do
 run ck@(PRINT : c) e s = do
   printState ck e s
   printFD4 (show strToPrint)
-  run cDropped e s
+  run cDropped e s -- TODO cambiar nombre, no somos ningunos dropped outs lcdsm
   where
-    strToPrint = bc2string (takeUntilNull c)
-    cDropped = dropUntilNull c
+    strToPrint = bc2string (takeUntilNull c) -- TODO Esto recorre la lista dos veces y no falla cuando no hay \0 al final
+    cDropped = dropUntilNull c -- TODO se puede usar split y chequear que haya quedado el \0 en la cabeza del remainder
 run ck@(DROP : c) (v : e) s = do
   printState ck (v : e) s
   run c e s
@@ -245,18 +246,20 @@ run ck@(FIX : c) e (Fun env cf : s) = do
   where
     ef = Fun ef cf : env
 run (RETURN : _) _ (v : RetAd e c : s) = run c e (v : s)
-run (STOP : ck) e s = do
+run ck@(STOP : []) e s = do
   printState ck e s
   printFD4 $ "Finnnn: " ++ showVal s
   return ()
 run _ _ _ = failFD4 "Error en el ByteCode"
 
+-- TODO reemplazar por takeWhile, o span o break. Además ver \0
 takeUntilNull :: Bytecode -> Bytecode
 takeUntilNull [] = []
 takeUntilNull (c : cs) = case c of
   NULL -> []
   _ -> c : takeUntilNull cs
 
+  -- TODO reemplazar por takeWhile, o span o break. Además ver \0
 dropUntilNull :: Bytecode -> Bytecode
 dropUntilNull [] = []
 dropUntilNull (c : cs) = case c of

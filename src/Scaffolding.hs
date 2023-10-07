@@ -19,11 +19,11 @@ import ByteCompile
 import Errors
 import qualified Main
 -- |
-bcc :: (MonadFD4 m) => Tm _ _ -> m Bytecode
-bcc = abort "usar la de ByteCompile"
+bcc' :: (MonadFD4 m) => Tm _ _ -> m Bytecode
+bcc' = abort "usar la de ByteCompile"
 
 test_bcc :: Tm _ _ -> IO (Either Errors.Error ())
-test_bcc tt = runFD4 (bcc tt >>= printFD4 . showBC) $ Conf False Interactive
+test_bcc tt = runFD4 (bcc' tt >>= printFD4 . showBC) $ Conf False Interactive
 
 -- |
 test_parser :: (Show a) => P a -> String -> IO ()

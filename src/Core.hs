@@ -22,6 +22,7 @@ import Data.Bitraversable
 import Data.Default
 import Data.List.Extra
 import Data.String
+import Data.Traversable
 
 type Name = String
 
@@ -67,7 +68,7 @@ data Tm info var
   | Fix info Name Ty Name Ty (Scope2 info var)
   | IfZ info (Tm info var) (Tm info var) (Tm info var)
   | Let info Name Ty (Tm info var) (Scope info var)
-  deriving (Show, Functor, Bifunctor, Bifoldable, Bitraversable)
+  deriving (Show, Functor, Foldable, Traversable, Bifunctor, Bifoldable, Bitraversable)
 
 -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición
 type Term = Tm Pos Var
@@ -75,7 +76,7 @@ type Term = Tm Pos Var
 -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición y tipo
 type TTerm = Tm (Pos, Ty) Var
 
-type Module = [Decl TTerm] -- Represnta un archivo de FD4
+type Module = [Decl TTerm] -- Representa un archivo de FD4
 
 data Var
   = Bound !Int
@@ -85,10 +86,12 @@ data Var
 
 -- Scope es un término con una o dos variables que escapan.
 newtype Scope info var = Sc1 {unSc1 :: Tm info var}
-  deriving newtype (Functor, Bifunctor)
+  deriving newtype (Functor, Bifunctor, Foldable)
+  deriving stock (Traversable)
 
 newtype Scope2 info var = Sc2 {unSc2 :: Tm info var}
-  deriving newtype (Functor, Bifunctor)
+  deriving newtype (Functor, Bifunctor, Foldable)
+  deriving stock (Traversable)
 
 instance (Show info, Show var) => Show (Scope info var) where
   show (Sc1 t) = "{" ++ show t ++ "}"
@@ -119,8 +122,8 @@ instance (Default info) => Default (Tm info var) where
   def = Lit def def
 
 -- | Obtiene la info en la raíz del término.
-getInfo :: (_) => Tm info var -> info -- instance monoid pos hecha a la derecha, los tipos con subtyping... TODO 2031
-getInfo = bifoldMap id (const mempty) -- ver bi-traversable
+getInfo' :: (_) => Tm info var -> info -- instance monoid pos hecha a la derecha, los tipos con subtyping... TODO 2031
+getInfo' = bifoldMap id (const mempty) -- ver bi-traversable
 
 -- | TODO Unlawful! Es para probar
 instance Semigroup Ty where
@@ -130,7 +133,6 @@ instance Semigroup Ty where
 instance Monoid Ty where
   mempty = Unit
 
-{-
 getInfo :: Tm info var -> info
 getInfo (Var i _) = i
 getInfo (Lit i _) = i
@@ -141,7 +143,7 @@ getInfo (Fix i _ _ _ _ _) = i
 getInfo (IfZ i _ _ _) = i
 getInfo (Let i _ _ _ _) = i
 getInfo (BOp i _ _ _) = i
--}
+
 getTy :: TTerm -> Ty
 getTy = snd . getInfo
 

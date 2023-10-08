@@ -287,7 +287,7 @@ testRun' t = do bc <- bccWithStop t
 
 printState :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
 printState c e s = do 
-          printFD4 $ rawBC2string c
+          -- printFD4 $ rawBC2string c
           printFD4 $ intercalate " - " [showBC c, showVal e, showVal s]
           return ()
                       
@@ -315,6 +315,8 @@ tc7 = BOp d Sub 9 8
 tc8 = Pnt d (S "verde") tc6
 tc9 = IfZ d 0 1 2
 tc10 = IfZ d 1 1 2
-
-
+tc11 = IfZ d (BOp d Add 2 3) (Pnt d (S "True") 1) (Pnt d (S "False") 2)
+tc12 = IfZ d 0 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
+tc13 = IfZ d 1 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
+tc14 = IfZ d (Pnt d (S "Condicion") (BOp d Add 2 3)) (Pnt d (S "True") (BOp d Add 2 7)) (Pnt d (S "False") 2)
 

@@ -1,0 +1,14 @@
+-- Tests de bcc y run
+
+testRun (Lam def "x" Nat (Sc1 (BOp def Add (Var def (Bound 0)) (4))))
+
+
+testRun (App def 5 (Lam def "x" Nat (Sc1 (BOp def Add (Var def (Bound 0)) (4))) )  )
+
+testRun (Let def "x" Nat 4 (Sc1 (BOp def Add (Var def (Bound 0)) 9)) )
+
+testRun (Lam def "x" Nat (Sc1 (BOp def Add (Var def (Bound 0) ) 9) ) )
+
+
+testRun (App def 4 5 )
+

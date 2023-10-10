@@ -91,11 +91,9 @@ pattern PRINT = 13
 
 pattern PRINTN = 14
 
-pattern JUMP = 15
+pattern JUMP = 15 -- No lo uso hoy en día
 pattern JUMPTRUE = 16
 pattern JUMPFALSE = 17
-
-pattern IFZ = 18
 
 -- función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
@@ -109,7 +107,6 @@ showOps (CALL : xs) = "CALL" : showOps xs
 showOps (ADD : xs) = "ADD" : showOps xs
 showOps (SUB : xs) = "SUB" : showOps xs
 showOps (FIX : xs) = "FIX" : showOps xs
-showOps (IFZ : xs) = "IFZ" : showOps xs
 showOps (STOP : xs) = "STOP" : showOps xs
 showOps (JUMP : i : xs) = ("JUMP off=" ++ show i) : showOps xs
 showOps (SHIFT : xs) = "SHIFT" : showOps xs
@@ -139,7 +136,6 @@ bcc (App _ t1 t2) = do
   bct1 <- bcc t1
   bct2 <- bcc t2
   return $ bct1 ++ bct2 ++ [CALL]
-
 bcc (Pnt _ (S s) t) = do
   bct <- bcc t
   return $  bct ++ [PRINT] ++ string2bc s ++ [NULL] ++ [PRINTN]
@@ -152,15 +148,18 @@ bcc (BOp _ Sub x y) = do
   bcy <- bcc y
   return $ bcx ++ bcy ++ [SUB]
 bcc (Fix _ fn fty x xty (Sc2 t)) = do
+  -- fix == \f.(\x.f (x x)) (\x.f (x x))
+  -- fix f x == (f (x x)) (f (x x))
+  -- t ?
   bct <- bcc t
-  return $ FUNCTION : [length bct] ++ bct ++ [RETURN, FIX] -- No se la verdad
+  return $ FUNCTION:[length bct] ++ bct ++ [RETURN, FIX]
 bcc (IfZ _ c t e) = do
   bccond <- bcc c
   bcthen <- bcc t
   bcelse <- bcc e
   return $ bccond ++
-                   (JUMPTRUE: length bcthen: bcthen) ++
-                   (JUMPFALSE: length bcelse: bcelse) ++ [IFZ] -- No tengo idea la verdad
+        (JUMPTRUE: length bcthen: bcthen) ++
+        (JUMPFALSE: length bcelse: bcelse)
 bcc (Let _ x _ e1 (Sc1 e2)) = do
   bce1 <- bcc e1
   bce2 <- bcc e2
@@ -184,7 +183,7 @@ byteCompileModule m = do
 
 declIntoTerm :: (MonadFD4 m) => Module -> m Term
 declIntoTerm [] = failFD4 "Módulo vacío"
--- declIntoTerm [t] = Let (t.pos) t.name Ty (Tm (t.pos) var) (Sc1 (Tm info var))
+-- declIntoTerm [t] = Let t.pos t.name Ty (Tm t.pos var) (Sc1 (Tm info var))
 declIntoTerm _ = failFD4 "unimplemented"
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
@@ -226,32 +225,29 @@ run ck@(PRINTN:c) e ss@(Natural n:s) = do   printState ck e ss
 run ck@(PRINT:c) e s = do printState ck e s
                           printFD4 (show strToPrint)
                           run cDropped e s
-  where strToPrint = bc2string (takeUntilNull c)
-        cDropped = dropUntilNull c
+  where strToPrint = bc2string (takeUntilNull c) -- takeUntilNull == takeWhile  (/= NULL) ??
+        cDropped = dropUntilNull c -- dropUntilNull == dropWhile  (/= NULL) ??
 run ck@(DROP:c) (v:e) s = do  printState ck (v:e) s
                               run c e s
 run ck@(SHIFT:c) e ss@(v:s) = do  printState ck e ss
                                   run c (v:e) s
-run ck@(IFZ:c) e s = do printState ck e s
-                        run c e s
 run ck@(JUMPTRUE:lenTrue:c) e ss@(Natural n:s) =
   do  printState ck e ss
       if n == 0
         then run c e s
         else run (drop (lenTrue +2) c) e s
-        -- +1? Tengo que droppear el JUMPFALSE,
-        -- voy directo a ejecutar eso
+        -- Tengo que droppear el JUMPFALSE, voy directo a ejecutar eso
 run ck@(JUMPFALSE:lenFalse:c) e s =
   do  printState ck e s
       run (drop lenFalse c) e s
-        -- +1? Tengo que droppear todo
 run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
                                         run c e (Fun ef cf:s)
   where ef = Fun ef cf : env
 run (RETURN:_) _ ss@(v:RetAd e c:s) = run c e (v:s)
-run ck@([STOP]) e s = do  printState ck e s
-                          printFD4 $ "Finnnn: " ++ showVal s
-                          return ()
+run ck@[STOP] e s = do  printState ck e s
+                        printFD4 $ "Finnnn: " ++ showVal s
+                        return ()
+run (STOP:xs) e s = failFD4 "Tengo un STOP y más instrucciones"
 run _ _ _ = failFD4 "Error en el ByteCode"
 
 -- TODO reemplazar por takeWhile, o span o break. Además ver \0
@@ -290,12 +286,12 @@ testRun t = do
 testRun' :: MonadFD4 m => Term -> m ()
 testRun' t = do bc <- bccWithStop t
                 -- printFD4 $ rawBC2string bc
-                printFD4 $ "Comienza el run:"
+                printFD4 "Comienza el run:"
                 runBC bc
 
 printState :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
 printState c e s = do
-          printFD4 $ rawBC2string c
+          -- printFD4 $ rawBC2string c
           printFD4 $ intercalate " - " [showBC c, showVal e, showVal s]
           return ()
 
@@ -310,8 +306,8 @@ showVal (RetAd e bc:env) = "Ret "++ showVal e ++ showBC bc ++ ": " ++ showVal en
 showVal [] = ""
 
 
-d :: Common.Pos
-d = def
+d :: Pos
+d = def::Common.Pos
 
 tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4)))
 -- tc2 = (App d 5 (Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) )  )
@@ -323,6 +319,8 @@ tc7 = BOp d Sub 9 8
 tc8 = Pnt d (S "verde") tc6
 tc9 = IfZ d 0 1 2
 tc10 = IfZ d 1 1 2
-
-
+tc11 = IfZ d (BOp d Add 2 3) (Pnt d (S "True") 1) (Pnt d (S "False") 2)
+tc12 = IfZ d 0 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
+tc13 = IfZ d 1 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
+tc14 = IfZ d (Pnt d (S "Condicion") (BOp d Add 2 3)) (Pnt d (S "True") (BOp d Add 2 7)) (Pnt d (S "False") 2)
 

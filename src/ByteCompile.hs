@@ -352,3 +352,20 @@ tc12 = IfZ d 0 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
 tc13 = IfZ d 1 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
 
 tc14 = IfZ d (Pnt d (S "Condición") (BOp d Add 2 3)) (Pnt d (S "True") (BOp d Add 2 7)) (Pnt d (S "False") 2)
+
+-- tc15 = Fix d fact (Nat->Nat) 5 Nat 
+
+tc16 = Let d fact (Nat->Nat) (Lam x Nat (IfZ d x 1 (App d fact (App d tc17 x)))  )
+tc17 = Lam d "x" Nat (Sc1 (BOp d Sub (Var d (Bound 0)) 1)) -- /x -> x-1
+-- let (fact:Nat->Nat) = 
+--    fix (fact:Nat->Nat) (x:Nat) -> tc20
+--      in (App d fact 5)
+
+-- creo que este no anda, pero no puedo probarlo
+tc20 = Lam d "f" (Nat->Nat) (Sc1 
+  ( Lam d "x" Nat (Sc1 (App (Var d (Bound 1))) (Var d (Bound 0)) ) )  )
+
+tc21 = Fix d "fact" (Nat->Nat) "x" Nat (Sc2 
+  (IfZ d (Var d (Bound 0)) 
+      1 
+      (App (Var d (Bound 1)) (App d tc17 (Var d (Bound 0)))) ))

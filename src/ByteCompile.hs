@@ -11,22 +11,21 @@
 -- module ByteCompile (Bytecode, runBC, bcWrite, bcRead, byteCompileModule, showBC) where
 module ByteCompile where
 
+import Common
 import Core hiding (Module)
 import Data.Binary (Binary (get, put), Word32, decode, encode)
 import Data.Binary.Get (getWord32le, isEmpty)
 import Data.Binary.Put (putWord32le)
 import Data.ByteString.Lazy qualified as BS
 import Data.Char
+import Data.Default
 import Data.List (intercalate)
-import Core hiding (Module)
-import Common
 import Global
 import MonadFD4
-import Data.Default
 
 type Opcode = Int
 
-type Bytecode = [Int] -- zafaroni con el utf-32
+type Bytecode = [Int] -- Int representa [-2^29 .. 2^29-1] pero parece que, al momento, utf-32 tiene code-points definidos hasta 2^21 aprox.
 
 type Env = [Value]
 
@@ -93,7 +92,9 @@ pattern PRINT = 13
 pattern PRINTN = 14
 
 pattern JUMP = 15 -- No lo uso hoy en día
+
 pattern JUMPTRUE = 16
+
 pattern JUMPFALSE = 17
 
 -- función util para debugging: muestra el Bytecode de forma más legible.
@@ -139,7 +140,7 @@ bcc (App _ t1 t2) = do
   return $ bct1 ++ bct2 ++ [CALL]
 bcc (Pnt _ (S s) t) = do
   bct <- bcc t
-  return $  bct ++ [PRINT] ++ string2bc s ++ [NULL] ++ [PRINTN]
+  return $ bct ++ [PRINT] ++ string2bc s ++ [NULL] ++ [PRINTN]
 bcc (BOp _ Add x y) = do
   bcx <- bcc x
   bcy <- bcc y
@@ -153,14 +154,15 @@ bcc (Fix _ fn fty x xty (Sc2 t)) = do
   -- fix f x == (f (x x)) (f (x x))
   -- t ?
   bct <- bcc t
-  return $ FUNCTION:[length bct] ++ bct ++ [RETURN, FIX]
+  return $ FUNCTION : [length bct] ++ bct ++ [RETURN, FIX]
 bcc (IfZ _ c t e) = do
   bccond <- bcc c
   bcthen <- bcc t
   bcelse <- bcc e
-  return $ bccond ++
-        (JUMPTRUE: length bcthen: bcthen) ++
-        (JUMPFALSE: length bcelse: bcelse)
+  return $
+    bccond
+      ++ (JUMPTRUE : length bcthen : bcthen)
+      ++ (JUMPFALSE : length bcelse : bcelse)
 bcc (Let _ x _ e1 (Sc1 e2)) = do
   bce1 <- bcc e1
   bce2 <- bcc e2
@@ -204,51 +206,67 @@ bcRead filename = (map fromIntegral <$> un32) . decode <$> BS.readFile filename
 runBC :: (MonadFD4 m) => Bytecode -> m ()
 runBC bc = run bc [] []
 
-
-run :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
-run ck@(ACCESS:i:c) e s = do  printState ck e s
-                              run c e ((e!!i):s)
-run ck@(CONST:n:c) e s = do printState ck e s
-                            run c e (Natural n:s)
-run ck@(ADD:c) e ss@(Natural n:Natural m:s) = do  printState ck e ss
-                                                  run c e (Natural (m+n):s)
-run ck@(SUB:c) e ss@(Natural y:Natural x:s) = do  printState ck e ss
-                                                  run c e (Natural (max (x-y) 0):s)
-run ck@(CALL:c) e ss@(v:Fun ef cf:s) = do   printState ck e ss
-                                            run cf (v:ef) (RetAd e c:s)
-run ck@(FUNCTION:size:c) e s = do printState ck e s
-                                  printState (drop size c) e (Fun e cf:s)
-                                  run (drop size c) e (Fun e cf:s)
-  where cf = take size c
-run ck@(PRINTN:c) e ss@(Natural n:s) = do   printState ck e ss
-                                            printFD4 (show n)
-                                            run c e (Natural n:s)
-run ck@(PRINT:c) e s = do printState ck e s
-                          printFD4 (show strToPrint)
-                          run cDropped e s
-  where strToPrint = bc2string (takeUntilNull c) -- takeUntilNull == takeWhile  (/= NULL) ??
-        cDropped = dropUntilNull c -- dropUntilNull == dropWhile  (/= NULL) ??
-run ck@(DROP:c) (v:e) s = do  printState ck (v:e) s
-                              run c e s
-run ck@(SHIFT:c) e ss@(v:s) = do  printState ck e ss
-                                  run c (v:e) s
-run ck@(JUMPTRUE:lenTrue:c) e ss@(Natural n:s) =
-  do  printState ck e ss
-      if n == 0
-        then run c e s
-        else run (drop (lenTrue +2) c) e s
-        -- Tengo que droppear el JUMPFALSE, voy directo a ejecutar eso
-run ck@(JUMPFALSE:lenFalse:c) e s =
-  do  printState ck e s
-      run (drop lenFalse c) e s
-run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
-                                        run c e (Fun ef cf:s)
-  where ef = Fun ef cf : env
-run (RETURN:_) _ ss@(v:RetAd e c:s) = run c e (v:s)
-run ck@[STOP] e s = do  printState ck e s
-                        printFD4 $ "Finnnn: " ++ showVal s
-                        return ()
-run (STOP:xs) e s = failFD4 "Tengo un STOP y más instrucciones"
+run :: (MonadFD4 m) => Bytecode -> Env -> Stack -> m ()
+run ck@(ACCESS : i : c) e s = do
+  printState ck e s
+  run c e ((e !! i) : s)
+run ck@(CONST : n : c) e s = do
+  printState ck e s
+  run c e (Natural n : s)
+run ck@(ADD : c) e ss@(Natural n : Natural m : s) = do
+  printState ck e ss
+  run c e (Natural (m + n) : s)
+run ck@(SUB : c) e ss@(Natural y : Natural x : s) = do
+  printState ck e ss
+  run c e (Natural (max (x - y) 0) : s)
+run ck@(CALL : c) e ss@(v : Fun ef cf : s) = do
+  printState ck e ss
+  run cf (v : ef) (RetAd e c : s)
+run ck@(FUNCTION : size : c) e s = do
+  printState ck e s
+  printState (drop size c) e (Fun e cf : s)
+  run (drop size c) e (Fun e cf : s)
+  where
+    cf = take size c
+run ck@(PRINTN : c) e ss@(Natural n : s) = do
+  printState ck e ss
+  printFD4 (show n)
+  run c e (Natural n : s)
+run ck@(PRINT : c) e s = do
+  printState ck e s
+  printFD4 (show strToPrint)
+  run cDropped e s
+  where
+    strToPrint = bc2string (takeUntilNull c) -- takeUntilNull == takeWhile  (/= NULL) ??
+    cDropped = dropUntilNull c -- dropUntilNull == dropWhile  (/= NULL) ??
+run ck@(DROP : c) (v : e) s = do
+  printState ck (v : e) s
+  run c e s
+run ck@(SHIFT : c) e ss@(v : s) = do
+  printState ck e ss
+  run c (v : e) s
+run ck@(JUMPTRUE : lenTrue : c) e ss@(Natural n : s) =
+  do
+    printState ck e ss
+    if n == 0
+      then run c e s
+      else run (drop (lenTrue + 2) c) e s
+-- Tengo que droppear el JUMPFALSE, voy directo a ejecutar eso
+run ck@(JUMPFALSE : lenFalse : c) e s =
+  do
+    printState ck e s
+    run (drop lenFalse c) e s
+run ck@(FIX : c) e ss@(Fun env cf : s) = do
+  printState ck e ss
+  run c e (Fun ef cf : s)
+  where
+    ef = Fun ef cf : env
+run (RETURN : _) _ ss@(v : RetAd e c : s) = run c e (v : s)
+run ck@[STOP] e s = do
+  printState ck e s
+  printFD4 $ "Finnnn: " ++ showVal s
+  return ()
+run (STOP : xs) e s = failFD4 "Tengo un STOP y más instrucciones"
 run _ _ _ = failFD4 "Error en el ByteCode"
 
 -- TODO reemplazar por takeWhile, o span o break. Además ver \0
@@ -258,7 +276,7 @@ takeUntilNull (c : cs) = case c of
   NULL -> []
   _ -> c : takeUntilNull cs
 
-  -- TODO reemplazar por takeWhile, o span o break. Además ver \0
+-- TODO reemplazar por takeWhile, o span o break. Además ver \0
 dropUntilNull :: Bytecode -> Bytecode
 dropUntilNull [] = []
 dropUntilNull (c : cs) = case c of
@@ -284,44 +302,55 @@ testRun t = do
     (Right r) -> print r
     (Left _) -> print "Error"
 
-testRun' :: MonadFD4 m => Term -> m ()
-testRun' t = do bc <- bccWithStop t
-                -- printFD4 $ rawBC2string bc
-                printFD4 "Comienza el run:"
-                runBC bc
+testRun' :: (MonadFD4 m) => Term -> m ()
+testRun' t = do
+  bc <- bccWithStop t
+  -- printFD4 $ rawBC2string bc
+  printFD4 "Comienza el run:"
+  runBC bc
 
-printState :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
+printState :: (MonadFD4 m) => Bytecode -> Env -> Stack -> m ()
 printState c e s = do
-          -- printFD4 $ rawBC2string c
-          printFD4 $ intercalate " - " [showBC c, showVal e, showVal s]
-          return ()
+  -- printFD4 $ rawBC2string c
+  printFD4 $ intercalate " - " [showBC c, showVal e, showVal s]
+  return ()
 
 rawBC2string :: Bytecode -> String
 rawBC2string [] = ""
-rawBC2string (x:xs) = show x ++ " " ++ rawBC2string xs
+rawBC2string (x : xs) = show x ++ " " ++ rawBC2string xs
 
 showVal :: [Value] -> String
-showVal (Natural n :env) = "Nat "++ show n ++ "; " ++ showVal env
-showVal (Fun e bc  :env) = "Fun "++ showVal e ++ showBC bc ++ ": " ++ showVal env
-showVal (RetAd e bc:env) = "Ret "++ showVal e ++ showBC bc ++ ": " ++ showVal env
+showVal (Natural n : env) = "Nat " ++ show n ++ "; " ++ showVal env
+showVal (Fun e bc : env) = "Fun " ++ showVal e ++ showBC bc ++ ": " ++ showVal env
+showVal (RetAd e bc : env) = "Ret " ++ showVal e ++ showBC bc ++ ": " ++ showVal env
 showVal [] = ""
-
 
 d :: Pos
 d = def
 
 tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4)))
+
 -- tc2 = (App d 5 (Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) )  )
 tc3 = Let d "x" Nat 4 (Sc1 (BOp d Add (Var d (Bound 0)) 9))
-tc4 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0) ) 9) )
-tc5 = App d tc4 5
-tc6 = Pnt d (S "pastito") tc3
-tc7 = BOp d Sub 9 8
-tc8 = Pnt d (S "verde") tc6
-tc9 = IfZ d 0 1 2
-tc10 = IfZ d 1 1 2
-tc11 = IfZ d (BOp d Add 2 3) (Pnt d (S "True") 1) (Pnt d (S "False") 2)
-tc12 = IfZ d 0 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
-tc13 = IfZ d 1 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
-tc14 = IfZ d (Pnt d (S "Condicion") (BOp d Add 2 3)) (Pnt d (S "True") (BOp d Add 2 7)) (Pnt d (S "False") 2)
 
+tc4 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) 9))
+
+tc5 = App d tc4 5
+
+tc6 = Pnt d (S "pastito") tc3
+
+tc7 = BOp d Sub 9 8
+
+tc8 = Pnt d (S "verde") tc6
+
+tc9 = IfZ d 0 1 2
+
+tc10 = IfZ d 1 1 2
+
+tc11 = IfZ d (BOp d Add 2 3) (Pnt d (S "True") 1) (Pnt d (S "False") 2)
+
+tc12 = IfZ d 0 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
+
+tc13 = IfZ d 1 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
+
+tc14 = IfZ d (Pnt d (S "Condición") (BOp d Add 2 3)) (Pnt d (S "True") (BOp d Add 2 7)) (Pnt d (S "False") 2)

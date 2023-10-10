@@ -150,11 +150,8 @@ bcc (BOp _ Sub x y) = do
   bcy <- bcc y
   return $ bcx ++ bcy ++ [SUB]
 bcc (Fix _ fn fty x xty (Sc2 t)) = do
-  -- fix == \f.(\x.f (x x)) (\x.f (x x))
-  -- fix f x == (f (x x)) (f (x x))
-  -- t ?
   bct <- bcc t
-  return $ FUNCTION : [length bct] ++ bct ++ [RETURN, FIX]
+  return $ FIX : [succ (length bct)] ++ bct ++ [RETURN]
 bcc (IfZ _ c t e) = do
   bccond <- bcc c
   bcthen <- bcc t
@@ -228,6 +225,13 @@ run ck@(FUNCTION : size : c) e s = do
   run (drop size c) e (Fun e cf : s)
   where
     cf = take size c
+run ck@(FIX : size : c) e s = do
+  printState ck e s
+  printState (drop size c) e (Fun e cf : s)
+  run (drop size c) e (Fun ef cf : s)
+  where
+    cf = take size c
+    ef = Fun ef cf : e
 run ck@(PRINTN : c) e ss@(Natural n : s) = do
   printState ck e ss
   printFD4 (show n)
@@ -256,11 +260,6 @@ run ck@(JUMPFALSE : lenFalse : c) e s =
   do
     printState ck e s
     run (drop lenFalse c) e s
-run ck@(FIX : c) e ss@(Fun env cf : s) = do
-  printState ck e ss
-  run c e (Fun ef cf : s)
-  where
-    ef = Fun ef cf : env
 run (RETURN : _) _ ss@(v : RetAd e c : s) = run c e (v : s)
 run ck@[STOP] e s = do
   printState ck e s

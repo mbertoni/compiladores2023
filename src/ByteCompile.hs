@@ -134,6 +134,9 @@ bcc (Lit _ (N n)) = return $ CONST : [n]
 bcc (Lam _ _ _ (Sc1 t)) = do
   bct <- bcc t
   return $ FUNCTION : [succ (length bct)] ++ bct ++ [RETURN]
+bcc (Fix _ fn fty x xty (Sc2 t)) = do
+  bct <- bcc t
+  return $ FUNCTION : [succ (length bct)] ++ bct ++ [RETURN] ++ [FIX]
 bcc (App _ t1 t2) = do
   bct1 <- bcc t1
   bct2 <- bcc t2
@@ -149,9 +152,6 @@ bcc (BOp _ Sub x y) = do
   bcx <- bcc x
   bcy <- bcc y
   return $ bcx ++ bcy ++ [SUB]
-bcc (Fix _ fn fty x xty (Sc2 t)) = do
-  bct <- bcc t
-  return $ FIX : [succ (length bct)] ++ bct ++ [RETURN]
 bcc (IfZ _ c t e) = do
   bccond <- bcc c
   bcthen <- bcc t
@@ -225,13 +225,12 @@ run ck@(FUNCTION : size : c) e s = do
   run (drop size c) e (Fun e cf : s)
   where
     cf = take size c
-run ck@(FIX : size : c) e s = do
-  printState ck e s
-  printState (drop size c) e (Fun e cf : s)
-  run (drop size c) e (Fun ef cf : s)
+run ck@(FIX : c) e ss@(Fun env cf : s) = do
+  printState ck e ss
+  printState c e (Fun ef cf : s)
+  run c e (Fun ef cf : s)
   where
-    cf = take size c
-    ef = Fun ef cf : e
+    ef = Fun ef cf : env
 run ck@(PRINTN : c) e ss@(Natural n : s) = do
   printState ck e ss
   printFD4 (show n)

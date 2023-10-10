@@ -22,6 +22,7 @@ import Core hiding (Module)
 import Common
 import Global
 import MonadFD4
+import Data.Default
 
 type Opcode = Int
 
@@ -307,7 +308,7 @@ showVal [] = ""
 
 
 d :: Pos
-d = def::Common.Pos
+d = def
 
 tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4)))
 -- tc2 = (App d 5 (Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) )  )

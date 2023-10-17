@@ -95,6 +95,8 @@ pattern PRINT = 13
 pattern PRINTN = 14
 
 pattern JUMP = 15 
+
+pattern TAILCALL = 16 
 -- pattern JUMPTRUE = 16
 -- pattern JUMPFALSE = 17
 
@@ -107,6 +109,7 @@ showOps (CONST : i : xs) = ("CONST " ++ show i) : showOps xs
 showOps (ACCESS : i : xs) = ("ACCESS " ++ show i) : showOps xs
 showOps (FUNCTION : i : xs) = ("FUNCTION len=" ++ show i) : showOps xs
 showOps (CALL : xs) = "CALL" : showOps xs
+showOps (TAILCALL : xs) = "TAILCALL" : showOps xs
 showOps (ADD : xs) = "ADD" : showOps xs
 showOps (SUB : xs) = "SUB" : showOps xs
 showOps (FIX : xs) = "FIX" : showOps xs
@@ -132,9 +135,12 @@ bcc (Var info (Bound i)) = return (ACCESS:[i]) -- Creo que las info desaparecen,
 -- bcc (Var _ (Global n)) = failFD4 "Los TTerm deberían estar resueltos ya"
 bcc (Lit _ (N n)) = return $ CONST:[n] 
 -- bcc (Lit _ (S s)) = CONST:s:[] -- Appendeamos strings? Fallamos?
+-- bcc (Lam _ _ _ (Sc1 t)) = do 
+--   bct <- bcc t  
+--   return $ FUNCTION:[succ (length bct) ] ++ bct ++ [RETURN]
 bcc (Lam _ _ _ (Sc1 t)) = do 
-  bct <- bcc t  
-  return $ FUNCTION:[succ (length bct) ] ++ bct ++ [RETURN]
+  bct <- bcTC t  
+  return $ FUNCTION:length bct:bct 
 bcc (App _ t1 t2) = do
   bct1 <- bcc t1
   bct2 <- bcc t2
@@ -169,6 +175,30 @@ bcc (Let _ x _ e1 (Sc1 e2)) = do
   return $ bce1 ++ [SHIFT] ++ bce2 ++ [DROP]
                               
 bcc _ = failFD4 "Patrón no capturado en bcc"
+
+bcTC :: (MonadFD4 m) => Term -> m Bytecode
+bcTC x@(App _ t1 t2) = do
+  -- printFD4 $ show x
+  bct1 <- bcc t1
+  bct2 <- bcc t2
+  return $ bct1 ++ bct2 ++ [TAILCALL]
+bcTC x@(IfZ _ c t e) = do
+  -- printFD4 $ show x
+  bccond <- bcc c
+  bcTCthen <- bcTC t 
+  bcTCelse <- bcTC e
+  return $ bccond ++ 
+        (JUMP: length bcTCthen: bcTCthen) ++ 
+        (JUMP: length bcTCelse: bcTCelse) 
+bcTC x@(Let _ _ _ m (Sc1 n)) = do
+  -- printFD4 $ show x
+  bcm <- bcc m
+  bcn <- bcTC n
+  return $ bcm ++ [SHIFT] ++ bcn
+bcTC x = do
+  -- printFD4 $ show x
+  bcx <- bcc x
+  return $ bcx ++ [RETURN]
 
 -- ord/chr devuelven los code-points unicode, o en otras palabras
 -- la codificación UTF-32 del carácter.
@@ -308,10 +338,10 @@ showVal [] = ""
 d :: Pos
 d = def::Common.Pos
 
-tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4)))
+-- tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) -- \x -> x+4
 -- tc2 = (App d 5 (Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) )  )
-tc3 = Let d "x" Nat 4 (Sc1 (BOp d Add (Var d (Bound 0)) 9)) 
-tc4 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0) ) 9) ) 
+tc3 = Let d "x" Nat 4 (Sc1 (BOp d Add (Var d (Bound 0)) 9)) -- let x = 4 in x+9
+tc4 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0) ) 9) ) -- \x -> x+9
 tc5 = App d tc4 5
 tc6 = Pnt d (S "pastito") tc3
 tc7 = BOp d Sub 9 8

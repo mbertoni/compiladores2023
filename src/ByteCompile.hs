@@ -94,9 +94,9 @@ pattern PRINT = 13
 
 pattern PRINTN = 14
 
-pattern JUMP = 15 -- No lo uso hoy en día
-pattern JUMPTRUE = 16
-pattern JUMPFALSE = 17
+pattern JUMP = 15 
+-- pattern JUMPTRUE = 16
+-- pattern JUMPFALSE = 17
 
 -- función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
@@ -119,8 +119,8 @@ showOps (PRINT : xs) =
   in ("PRINT " ++ show (bc2string msg)) : showOps rest
 showOps (PRINTN : xs) = "PRINTN" : showOps xs
 showOps (ADD : xs) = "ADD" : showOps xs
-showOps (JUMPTRUE : i : xs) = ("True off=" ++ show i) : showOps xs
-showOps (JUMPFALSE : i : xs) = ("False off=" ++ show i) : showOps xs
+-- showOps (JUMPTRUE : i : xs) = ("True off=" ++ show i) : showOps xs
+-- showOps (JUMPFALSE : i : xs) = ("False off=" ++ show i) : showOps xs
 showOps (x : xs) = show x : showOps xs
 
 showBC :: Bytecode -> String
@@ -161,8 +161,8 @@ bcc (IfZ _ c t e) = do
   bcthen <- bcc t 
   bcelse <- bcc e
   return $ bccond ++ 
-        (JUMPTRUE: length bcthen: bcthen) ++ 
-        (JUMPFALSE: length bcelse: bcelse) 
+        (JUMP: length bcthen: bcthen) ++ 
+        (JUMP: length bcelse: bcelse) 
 bcc (Let _ x _ e1 (Sc1 e2)) = do
   bce1 <- bcc e1
   bce2 <- bcc e2
@@ -234,15 +234,18 @@ run ck@(DROP:c) (v:e) s = do  printState ck (v:e) s
                               run c e s
 run ck@(SHIFT:c) e ss@(v:s) = do  printState ck e ss
                                   run c (v:e) s
-run ck@(JUMPTRUE:lenTrue:c) e ss@(Natural n:s) = 
+run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) = 
   do  printState ck e ss
       if n == 0
-        then run c e s
+        then run cOnlyTrue e s
         else run (drop (lenTrue +2) c) e s 
-        -- Tengo que droppear el JUMPFALSE, voy directo a ejecutar eso
-run ck@(JUMPFALSE:lenFalse:c) e s = 
-  do  printState ck e s
-      run (drop lenFalse c) e s 
+        -- Tengo que droppear el JUMPFALSE, voy directo a ejecutar 
+      where cDropped = drop (lenTrue+1) c
+            cCommon = drop (head cDropped +1) cDropped
+            cOnlyTrue = take lenTrue c ++ cCommon
+-- run ck@(JUMP:lenFalse:c) e s = 
+--   do  printState ck e s
+--       run (drop lenFalse c) e s 
 run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
                                         run c e (Fun ef cf:s)
   where ef = Fun ef cf : env 
@@ -287,7 +290,7 @@ testRun' t = do bc <- bccWithStop t
 
 printState :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
 printState c e s = do 
-          -- printFD4 $ rawBC2string c
+          printFD4 $ rawBC2string c
           printFD4 $ intercalate " - " [showBC c, showVal e, showVal s]
           return ()
                       
@@ -319,4 +322,8 @@ tc11 = IfZ d (BOp d Add 2 3) (Pnt d (S "True") 1) (Pnt d (S "False") 2)
 tc12 = IfZ d 0 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
 tc13 = IfZ d 1 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
 tc14 = IfZ d (Pnt d (S "Condicion") (BOp d Add 2 3)) (Pnt d (S "True") (BOp d Add 2 7)) (Pnt d (S "False") 2)
+tc15 = IfZ d 0 tc3 tc7
+tc16 = IfZ d 1 tc3 tc7
+tc17 = Pnt d (S "pastito") tc15
+tc18 = Pnt d (S "pastito") tc16
 

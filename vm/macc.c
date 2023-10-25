@@ -40,13 +40,13 @@ enum {
 	TAILCALL = 16,
 };
 
-#define quit(...)							\
+#define quit(...)						\
 	do {								\
-		fprintf(stderr, __VA_ARGS__);				\
-		fprintf(stderr, "\n");					\
+		fprintf(stderr, __VA_ARGS__);	\
+		fprintf(stderr, "\n");			\
 		if (errno)						\
 			fprintf(stderr, "errno = %d\n", errno);		\
-		exit(EXIT_FAILURE);					\
+		exit(EXIT_FAILURE);				\
 	} while (0)
 
 /*
@@ -194,8 +194,12 @@ void run(code init_c)
 		/* Consumimos un opcode y lo inspeccionamos. */
 		switch(*c++) {
 		case ACCESS: {
-			/* implementame */
-			abort();
+			int b = *c++;
+			env ee = e; // para no tocar el environment real
+			while (b--) // busca el binding, caso b=0?
+				ee = ee->next;
+			*s++ = ee->v;
+			break;
 		}
 
 		case CONST: {
@@ -325,13 +329,14 @@ void run(code init_c)
 		}
 
 		case SHIFT: {
-			/* implementame */
-			abort();
+			value v = *--s;
+			e = env_push(e, v);
+			break;
 		}
 
 		case DROP: {
-			/* implementame */
-			abort();
+			e = e->next;
+			break;
 		}
 
 		case PRINTN: {

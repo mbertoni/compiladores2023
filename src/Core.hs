@@ -72,7 +72,7 @@ type Term = Tm Pos Var
 -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición y tipo
 type TTerm = Tm (Pos, Ty) Var
 
-type Module = [Decl TTerm] -- Represnta un archivo de FD4
+type Module = [Decl TTerm] -- Representa un archivo de FD4
 
 data Var
   = Bound !Int
@@ -127,11 +127,26 @@ getInfo (IfZ i _ _ _) = i
 getInfo (Let i _ _ _ _) = i
 getInfo (BOp i _ _ _) = i
 
+getTerm :: TTerm -> Term
+getTerm (Var i v) = Var (fst i) v
+getTerm (Lit i l) = Lit (fst i) l
+getTerm (Lam i1 n t s) = Lam (fst i1) n t (ts2s s)
+getTerm (App i t1 t2) = App (fst i) (getTerm t1) (getTerm t2)
+getTerm (Pnt i l t) = Pnt (fst i) l (getTerm t)
+getTerm (Fix i fn ft xn xt s) = Fix (fst i) fn ft xn xt (ts22s s)
+getTerm (IfZ i c t f) = IfZ (fst i) c (getTerm t) (getTerm f)
+getTerm (Let i nm ty t s) = Let (fst i) nm ty (getTerm t) (ts2s s)
+getTerm (BOp i op t1 t2) = BOp (fst i) op (getTerm t1) (getTerm t2)
+
+ts2s (Sc1 t) = Sc1 (getTerm t)
+ts22s (Sc2 t) = Sc2 (getTerm t)
+
 getTy :: TTerm -> Ty
 getTy = snd . getInfo
 
 getPos :: TTerm -> Pos
 getPos = fst . getInfo
+
 
 -- | map para la info de un término
 mapInfo :: (a -> b) -> Tm a var -> Tm b var

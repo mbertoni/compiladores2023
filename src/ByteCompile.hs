@@ -20,14 +20,14 @@ import Data.ByteString.Lazy qualified as BS
 import Data.Char
 import Data.Default
 import Data.List (intercalate)
-import Core hiding (Module)
+import Core 
 import Common
 import Global
 import MonadFD4
 import Data.Functor.Classes (eq1)
 import System.Process.Extra (CreateProcess(env))
 import Data.String (String)
-
+import Subst
 type Opcode = Int
 
 type Bytecode = [Int]
@@ -208,16 +208,25 @@ string2bc = map ord
 bc2string :: Bytecode -> String
 bc2string = map chr
 
-type Module = [Decl Term] -- Creo que sería así. Definimos un programa como una lista de declaraciones
+-- type Module = [Decl TTerm] 
 byteCompileModule :: (MonadFD4 m) => Module -> m Bytecode
 byteCompileModule m = do  tt <- declIntoTerm m
                           bcc tt
                       
   
+{- 
+  let x = t1
+  let y = t2
+  let z = t3 
+-} 
 declIntoTerm :: (MonadFD4 m) => Module -> m Term
 declIntoTerm [] = failFD4 "Módulo vacío"
--- declIntoTerm [t] = Let t.pos t.name Ty (Tm t.pos var) (Sc1 (Tm info var)) 
-declIntoTerm _ = failFD4 "unimplemented"
+declIntoTerm [tt] = return $ getTerm tt.body
+declIntoTerm (tt:tts) = do
+          rest <- declIntoTerm tts
+          return $ Let (getPos tt.body) tt.name (getTy tt.body) (getTerm tt.body) (close tt.name rest)
+  
+
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()

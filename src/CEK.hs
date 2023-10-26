@@ -111,17 +111,13 @@ printDestroyStatus:: (MonadFD4 m) => Value -> Continuation -> m()
 printDestroyStatus v k = do 
           printFD4 $ show v  ++ " - " ++ show k
           return ()
-                      
--- rawBC2string :: Bytecode -> String
--- rawBC2string [] = ""
--- rawBC2string (x:xs) = show x ++ " " ++ rawBC2string xs
 
 
 d :: (Pos,Ty)
 d = (def::Common.Pos, Nat)
 
--- tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) -- \x -> x+4
--- tc2 = (App d 5 (Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) )  )
+tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) -- \x -> x+4
+tc2 = App d 5 (Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) ) 
 tc3 = Let d "x" Nat 4 (Sc1 (BOp d Add (Var d (Bound 0)) 9)) -- let x = 4 in x+9
 tc4 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0) ) 9) ) -- \x -> x+9
 tc5 = App d tc4 5

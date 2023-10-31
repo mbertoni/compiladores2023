@@ -134,7 +134,7 @@ getTerm (Lam i1 n t s) = Lam (fst i1) n t (ts2s s)
 getTerm (App i t1 t2) = App (fst i) (getTerm t1) (getTerm t2)
 getTerm (Pnt i l t) = Pnt (fst i) l (getTerm t)
 getTerm (Fix i fn ft xn xt s) = Fix (fst i) fn ft xn xt (ts22s s)
-getTerm (IfZ i c t f) = IfZ (fst i) c (getTerm t) (getTerm f)
+getTerm (IfZ i c t f) = IfZ (fst i) (getTerm c) (getTerm t) (getTerm f)
 getTerm (Let i nm ty t s) = Let (fst i) nm ty (getTerm t) (ts2s s)
 getTerm (BOp i op t1 t2) = BOp (fst i) op (getTerm t1) (getTerm t2)
 

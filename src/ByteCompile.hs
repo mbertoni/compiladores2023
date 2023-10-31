@@ -169,6 +169,17 @@ bcc (IfZ _ c t e) = do
   return $ bccond ++ 
         (JUMP: length bcthen: bcthen) ++ 
         (JUMP: length bcelse: bcelse) 
+{-
+Otra opción para el JUMP, usando CJUMP 
+(es decir, dos JUMPS en vez de uno)
+
+bcc (IfZ _ c t f) = do
+  bccond <- bcc c
+  bcthen <- bcc t 
+  bcelse <- bcc e
+  return $ bccond ++ [CJUMP, length bcthen] ++ bcthen ++ [JUMP, length bcelse] ++ bcelse
+
+-}
 bcc (Let _ x _ e1 (Sc1 e2)) = do
   bce1 <- bcc e1
   bce2 <- bcc e2
@@ -282,9 +293,17 @@ run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) =
       where cDropped = drop (lenTrue+1) c
             cCommon = drop (head cDropped +1) cDropped
             cOnlyTrue = take lenTrue c ++ cCommon
--- run ck@(JUMP:lenFalse:c) e s = 
---   do  printState ck e s
---       run (drop lenFalse c) e s 
+{-
+Otra opción para el JUMP, usando CJUMP 
+(es decir, dos JUMPS en vez de uno)
+Si es necesario usar esta, deberíamos ver si es len+1 , len+2 y probarlo bien.
+run (CJUMP:len:c) e (I n:s) = 
+    if n == 0 then run c e s 
+              else run (drop (len+2) c) e s 
+run (JUMP:len:c) e s  = run (drop (len+2) c) e s
+-}
+
+
 run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
                                         run c e (Fun ef cf:s)
   where ef = Fun ef cf : env 

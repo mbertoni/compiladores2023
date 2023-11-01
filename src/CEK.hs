@@ -95,9 +95,7 @@ testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
                                (Left _)  -> print "Error"
 
 testRun' :: MonadFD4 m => TTerm -> m ()
-testRun' t = do -- bc <- bccWithStop t 
-                -- printFD4 $ rawBC2string bc
-                printFD4 "Comienza el run:"
+testRun' t = do printFD4 "Comienza el run:"
                 v <- seek t [] []
                 printFD4 $ show v
                 return ()

@@ -37,6 +37,7 @@ import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPrint, hPutStrLn, stderr)
 import TypeChecker (tc, tcDecl)
 import ByteCompile
+import Optimizer
 
 prompt :: String
 prompt = "FD4> "

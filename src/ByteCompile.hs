@@ -20,9 +20,14 @@ import Data.ByteString.Lazy qualified as BS
 import Data.Char
 import Data.Default
 import Data.List (intercalate)
+import Core
+import Common
 import Global
 import MonadFD4
-
+import Data.Functor.Classes (eq1)
+import System.Process.Extra (CreateProcess(env))
+import Data.String (String)
+import Subst
 type Opcode = Int
 
 type Bytecode = [Int] -- Int representa [-2^29 .. 2^29-1] pero parece que, al momento, utf-32 tiene code-points definidos hasta 2^21 aprox.
@@ -160,6 +165,17 @@ bcc (IfZ _ c t e) = do
   return $ bccond ++
         (JUMP: length bcthen: bcthen) ++
         (JUMP: length bcelse: bcelse)
+{-
+Otra opción para el JUMP, usando CJUMP
+(es decir, dos JUMPS en vez de uno)
+
+bcc (IfZ _ c t f) = do
+  bccond <- bcc c
+  bcthen <- bcc t
+  bcelse <- bcc e
+  return $ bccond ++ [CJUMP, length bcthen] ++ bcthen ++ [JUMP, length bcelse] ++ bcelse
+
+-}
 bcc (Let _ x _ e1 (Sc1 e2)) = do
   bce1 <- bcc e1
   bce2 <- bcc e2
@@ -198,17 +214,25 @@ string2bc = map ord
 bc2string :: Bytecode -> String
 bc2string = map chr
 
-type Module = [Decl Term] -- Creo que sería así. Definimos un programa como una lista de declaraciones
-
+-- type Module = [Decl TTerm]
 byteCompileModule :: (MonadFD4 m) => Module -> m Bytecode
-byteCompileModule m = do
-  tt <- declIntoTerm m
-  bcc tt
+byteCompileModule m = do  tt <- declIntoTerm m
+                          bcc tt
 
+
+{-
+  let x = t1
+  let y = t2
+  let z = t3
+-}
 declIntoTerm :: (MonadFD4 m) => Module -> m Term
 declIntoTerm [] = failFD4 "Módulo vacío"
--- declIntoTerm [t] = Let t.pos t.name Ty (Tm t.pos var) (Sc1 (Tm info var))
-declIntoTerm _ = failFD4 "unimplemented"
+declIntoTerm [tt] = return $ getTerm tt.body
+declIntoTerm (tt:tts) = do
+          rest <- declIntoTerm tts
+          return $ Let (getPos tt.body) tt.name (getTy tt.body) (getTerm tt.body) (close tt.name rest)
+
+
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()
@@ -264,9 +288,17 @@ run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) =
       where cDropped = drop (lenTrue+1) c
             cCommon = drop (head cDropped +1) cDropped
             cOnlyTrue = take lenTrue c ++ cCommon
--- run ck@(JUMP:lenFalse:c) e s =
---   do  printState ck e s
---       run (drop lenFalse c) e s
+{-
+Otra opción para el JUMP, usando CJUMP
+(es decir, dos JUMPS en vez de uno)
+Si es necesario usar esta, deberíamos ver si es len+1 , len+2 y probarlo bien.
+run (CJUMP:len:c) e (I n:s) =
+    if n == 0 then run c e s
+              else run (drop (len+2) c) e s
+run (JUMP:len:c) e s  = run (drop (len+2) c) e s
+-}
+
+
 run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
                                         run c e (Fun ef cf:s)
   where ef = Fun ef cf : env

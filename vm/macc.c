@@ -272,8 +272,12 @@ void run(code init_c)
 		}
 
 		case TAILCALL: {
-			/* implementame */
-			abort();
+			// Sacamos el valor y la clausura del stack 
+			value val = *--s;
+			struct clo closure = (*--s).clo;
+			c = closure.clo_body;
+			e = env_push(closure.clo_env, val);
+			break;
 		}
 
 		case FUNCTION: {
@@ -350,6 +354,20 @@ void run(code init_c)
 			while ((wc = *c++))
 				putwchar(wc);
 
+			break;
+		}
+
+		case JUMP: {
+			uint32_t len = *c++;
+			c += len;
+			break;
+		}
+
+		case CJUMP: {
+			uint32_t len = *c++;
+			// Tengo que saltar si no tengo un 0 en el stack
+			if (!((*s).i))
+				c += len;
 			break;
 		}
 

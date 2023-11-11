@@ -69,7 +69,7 @@ parseMode =
               )
             <|> flag Eval Eval (long "eval" <> short 'e' <> help "Evaluar un programa")
         )
-    -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")
+    -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")  <- sería acá lo que hay que descomentar?
     -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonización")
     -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
     -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")

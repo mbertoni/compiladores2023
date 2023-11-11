@@ -43,6 +43,9 @@ executable compiladores2023
     Subst
     Surf
     TypeChecker
+    IR
+    ClosureConvert
+    C
   
   hs-source-dirs:     src
 

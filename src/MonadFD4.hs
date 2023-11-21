@@ -153,3 +153,8 @@ runFD4' c conf = runExceptT $ runStateT (runReaderT c conf) initialEnv
 
 runFD4 :: FD4 a -> Conf -> IO (Either Error a)
 runFD4 c conf = fmap fst <$> runFD4' c conf
+
+getFresh :: MonadFD4 m => m Int
+getFresh = do fr <- gets fresh
+              modify (\s -> s {fresh = fr + 1})
+              return fr

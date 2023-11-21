@@ -2,7 +2,7 @@ module C ( ir2C ) where
 import Prettyprinter
 import Prettyprinter.Render.Terminal ( renderStrict )
 import IR
-import Lang
+import Core
 import Data.Text (unpack)
 import Data.Char ( isAlpha, ord )
 

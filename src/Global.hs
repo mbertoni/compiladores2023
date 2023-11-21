@@ -24,7 +24,9 @@ data GlEnv = GlEnv
     -- | Declaraciones de tipos
     typeContext :: [Decl Ty],
     -- | Entorno con declaraciones globales ya tipadas
-    termEnvironment :: [Decl TTerm]
+    termEnvironment :: [Decl TTerm],
+    -- | Contador de variables fresh
+    fresh :: Int
   }
 
 globalTypedEnvironment :: GlEnv -> [(Name, Ty)]
@@ -55,4 +57,4 @@ data Conf = Conf
 
 -- | Valor del estado inicial
 initialEnv :: GlEnv
-initialEnv = GlEnv False "" 0 0 [] []
+initialEnv = GlEnv False "" 0 0 [] [] 0

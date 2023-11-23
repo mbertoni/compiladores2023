@@ -45,7 +45,7 @@ executable compiladores2023
     TypeChecker
     IR
     ClosureConvert
-    C
+    
   
   hs-source-dirs:     src
 

@@ -362,12 +362,12 @@ showVal (Fun e bc  :env) = "Fun "++ showVal e ++ showBC bc ++ ": " ++ showVal en
 showVal (RetAd e bc:env) = "Ret "++ showVal e ++ showBC bc ++ ": " ++ showVal env
 showVal [] = ""
 
-
+{-
 d :: Pos
 d = def::Common.Pos
 
--- tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) -- \x -> x+4
--- tc2 = (App d 5 (Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) )  )
+tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) -- \x -> x+4
+tc2 = (App d 5 (Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) )  )
 tc3 = Let d "x" Nat 4 (Sc1 (BOp d Add (Var d (Bound 0)) 9)) -- let x = 4 in x+9
 tc4 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0) ) 9) ) -- \x -> x+9
 tc5 = App d tc4 5
@@ -384,4 +384,5 @@ tc15 = IfZ d 0 tc3 tc7
 tc16 = IfZ d 1 tc3 tc7
 tc17 = Pnt d (S "pastito") tc15
 tc18 = Pnt d (S "pastito") tc16
+-}
 

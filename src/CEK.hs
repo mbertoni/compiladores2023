@@ -111,9 +111,9 @@ printDestroyStatus v k = do
           return ()
 
 
+{-
 d :: (Pos,Ty)
 d = (def::Common.Pos, Nat)
-
 tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) -- \x -> x+4
 tc2 = App d 5 (Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) ) 
 tc3 = Let d "x" Nat 4 (Sc1 (BOp d Add (Var d (Bound 0)) 9)) -- let x = 4 in x+9
@@ -132,4 +132,5 @@ tc15 = IfZ d 0 tc3 tc7
 tc16 = IfZ d 1 tc3 tc7
 tc17 = Pnt d (S "pastito") tc15
 tc18 = Pnt d (S "pastito") tc16
+-}
 

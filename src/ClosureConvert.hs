@@ -1,3 +1,5 @@
+module ClosureConvert where
+
 import Core
 import IR
 import Common (abort)
@@ -15,6 +17,7 @@ convertType (Named _) = abort "error"
 convertType Unit = abort "error"
 
 type Ms a = StateT Int (Writer [IrDecl]) a
+-- newtype IrDecls [IrDecl]
 
 closureConvert :: TTerm -> Ms Ir
 closureConvert (Var _ (Bound i))  = abort "Unimplemented" 

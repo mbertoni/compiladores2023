@@ -22,7 +22,6 @@ data Pos
   | -- | Posición en un archivo.
     Pos !Line !Column
 
-
 instance Semigroup Pos where
   i <> NoPos = i
   _ <> i = i

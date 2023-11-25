@@ -9,7 +9,7 @@ module Main where
 
 -- import Control.Monad
 
-import qualified CEK (eval)
+import qualified CEK 
 import Common (abort)
 import Control.Exception (IOException, catch)
 import Control.Monad.Catch (MonadMask)
@@ -172,16 +172,19 @@ handleDeclaration d = do
   m <- getMode
   gamma <- gets globalTypeContext
   case m of
-    _ -> case Elab.declaration gamma d of -- TODO Es un compilador mono-comando, como la canilla!!!
-      Left (C.Decl p x tm) -> do
-        tt <- tcDecl (C.Decl p x tm)
-        te <- CEK.eval (C.body tt)
-        addTermDecl (C.Decl p x te)
-      Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
+    -- _ -> case Elab.declaration gamma d of -- TODO Es un compilador mono-comando, como la canilla!!!
+    --   Left (C.Decl p x tm) -> do
+    --     tt <- tcDecl (C.Decl p x tm)
+    --     te <- CEK.eval (C.body tt)
+    --     addTermDecl (C.Decl p x te)
+    --   Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     Interactive -> case Elab.declaration gamma d of
       Left (C.Decl p x tm) -> do
+        printFD4 ("\nCrudo: " ++ show tm)
         tt <- tcDecl (C.Decl p x tm)
-        te <- CEK.eval (C.body tt)
+        printFD4 ("\nTTerm: " ++ show tt)
+        te <- eval (C.body tt)
+        printFD4 ("\nEval: " ++ show te)
         addTermDecl (C.Decl p x te)
       Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     Typecheck -> do

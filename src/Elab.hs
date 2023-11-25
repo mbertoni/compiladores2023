@@ -99,7 +99,7 @@ term gamma = goTerm []
                     fun = S.T $ S.Fun (first pure <$> fromList args) t'
 
 ident :: S.Ident -> Name
-ident = \case
+ident x = case x of
   S.VarId s -> s
   S.TyId s -> s
 
@@ -110,7 +110,7 @@ multi :: [Binder] -> S.Multi -> [Binder]
 multi gamma (is, tau) = toList $ fmap (\i -> (ident i, ty gamma tau)) is
 
 ty :: [Binder] -> S.Ty -> Ty
-ty gamma = \case
+ty gamma x = case x of
   S.Nat -> Nat
   S.ParTy t -> go t
   S.Arrow t t' -> Arrow (go t) (go t')
@@ -119,12 +119,12 @@ ty gamma = \case
     go = ty gamma
 
 literal :: S.Literal -> Literal
-literal = \case
+literal x = case x of
   S.N n -> N $ fromInteger n
   S.S s -> S s
 
 binaryOp :: S.BinaryOp -> BinaryOp
-binaryOp = \case
+binaryOp x = case x of
   S.Add -> Add
   S.Sub -> Sub
 
@@ -133,10 +133,14 @@ binaryOp = \case
 -- TODO  Either (Decl Term) (Decl Ty) \cong Decl (Either Term Ty)
 -- ahora está roto en el driver
 declaration :: [Binder] -> S.Declaration -> Either (Decl Term) (Decl Ty)
-declaration gamma = \case
-  S.LetDecl p f r xs t -> Left $ Decl {name = ident $ fst f , pos = def, body = _body}
+declaration gamma x = case x of
+  S.LetDecl p f r xs t -> Left $ Decl { name = ident $ fst f , 
+                                        pos = def, 
+                                        body = _body}
     where _body = term gamma (S.T $ S.Let p f r xs t def)
-  S.TypeDecl b -> Right $ Decl {name = ident $ fst b , pos = def, body = _body}
+  S.TypeDecl b -> Right $ Decl {name = ident $ fst b , 
+                                pos = def,
+                                body = _body}
     where _body = ty gamma $ snd b
 
 

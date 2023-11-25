@@ -97,9 +97,11 @@ main = execParser opts >>= go
         )
 
     go :: (Mode, Bool, [FilePath]) -> IO ()
-    go (Interactive, opt, files) =
-      runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
-    go (m, opt, files) = runOrFail (Conf opt m) $ mapM_ compileFile files
+    go (Interactive, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
+    -- go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
+    -- go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
+    -- go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
+    go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
 runOrFail :: Conf -> FD4 a -> IO a
 runOrFail c m = do

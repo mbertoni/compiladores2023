@@ -36,7 +36,8 @@ data Frame
   deriving (Show)
 
 seek :: (MonadFD4 m) => TTerm -> Env -> Continuation -> m Value
-seek term env k = do  printSeekStatus term env k 
+seek term env k = do  
+                      printSeekStatus term env k 
                       case term of
                         Pnt _ s t -> seek t env (PntT s : k)
                         BOp _ op t u -> seek t env (BOpL op u env : k)
@@ -58,7 +59,8 @@ seek term env k = do  printSeekStatus term env k
 
 destroy :: (MonadFD4 m) => Value -> Continuation -> m Value
 destroy v [] = return v
-destroy v (fr : k) = do printDestroyStatus v (fr:k) 
+destroy v (fr : k) = do 
+                        printDestroyStatus v (fr:k) 
                         case fr of
                           PntT lit -> printFD4 (unS lit ++ show v) >> destroy v k
                           BOpL op term env -> seek term env (BOpR op v : k)
@@ -95,7 +97,8 @@ testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
                                (Left _)  -> print "Error"
 
 testRun' :: MonadFD4 m => TTerm -> m ()
-testRun' t = do printFD4 "Comienza el run:"
+testRun' t = do 
+                -- printFD4 "Comienza el run:"
                 v <- seek t [] []
                 printFD4 $ show v
                 return ()

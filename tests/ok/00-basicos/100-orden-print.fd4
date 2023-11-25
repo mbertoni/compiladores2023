@@ -1,6 +1,6 @@
 let (orden_de_impresion:Nat) = print "uno! " (print "dos! " 3)
 
-let (f:Nat->Nat) = fun (x:Nat) ->
+let (f:Nat->Nat) = fun (x:Nat) -> 
 	ifz x
 	then print "uno! " 1
 	else print "dos! " 2

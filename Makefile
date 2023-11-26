@@ -1,7 +1,7 @@
 .PHONY: run test
 .DELETE_ON_ERROR:
 
-TGT=app/Main
+TGT=Main
 
 GHCOPTS=-prof
 RTSOPTS=+RTS -xc

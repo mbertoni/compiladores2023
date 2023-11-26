@@ -1,0 +1,15 @@
+let (f:Nat -> Nat) = fun (n:Nat) ->
+  let (x:Nat) = 20 in x+1 
+
+let (y:Nat) = f 100
+
+[Decl {
+    pos = _, 
+    name = "f", 
+    body = Lam (_,Arrow Nat Nat) "n" Nat 
+    |Let (_,Nat) "x" Nat (Lit (_,Nat) (N {unN = 20})) 
+        |BOp (_,Nat) Add (Var (_,Nat) (Global "x")) 
+            (Lit (_,Nat) (N {unN = 1}))
+        |
+    |
+}]

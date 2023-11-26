@@ -1,4 +1,3 @@
-
 -- |
 -- Module      : Elab
 -- Description : Elabora un término fully named a uno locally closed.
@@ -11,6 +10,7 @@
 -- fully named (@STerm) a locally closed (@Term@)
 module Elab where
 
+import Common
 import Core
 import Data.Bifunctor
 import Data.Default
@@ -18,7 +18,6 @@ import Data.List.NonEmpty
 import Data.Maybe
 import Subst
 import Surf qualified as S
-import Common
 
 -- | 'term' transforma variables ligadas en índices de de Bruijn
 -- en un término dado.
@@ -110,7 +109,7 @@ multi :: [Binder] -> S.Multi -> [Binder]
 multi gamma (is, tau) = toList $ fmap (\i -> (ident i, ty gamma tau)) is
 
 ty :: [Binder] -> S.Ty -> Ty
-ty gamma x = case x of
+ty gamma = \case
   S.Nat -> Nat
   S.ParTy t -> go t
   S.Arrow t t' -> Arrow (go t) (go t')
@@ -119,12 +118,12 @@ ty gamma x = case x of
     go = ty gamma
 
 literal :: S.Literal -> Literal
-literal x = case x of
+literal = \case
   S.N n -> N $ fromInteger n
   S.S s -> S s
 
 binaryOp :: S.BinaryOp -> BinaryOp
-binaryOp x = case x of
+binaryOp = \case
   S.Add -> Add
   S.Sub -> Sub
 
@@ -133,17 +132,27 @@ binaryOp x = case x of
 -- TODO  Either (Decl Term) (Decl Ty) \cong Decl (Either Term Ty)
 -- ahora está roto en el driver
 declaration :: [Binder] -> S.Declaration -> Either (Decl Term) (Decl Ty)
-declaration gamma x = case x of
-  S.LetDecl p f r xs t -> Left $ Decl { name = ident $ fst f , 
-                                        pos = def, 
-                                        body = _body}
-    where _body = term gamma (S.T $ S.Let p f r xs t def)
-  S.TypeDecl b -> Right $ Decl {name = ident $ fst b , 
-                                pos = def,
-                                body = _body}
-    where _body = ty gamma $ snd b
-
-
+declaration gamma = \case
+  S.TypeDecl b ->
+    Right
+      $ Decl
+        { name = ident $ fst b,
+          pos = def,
+          body = _body
+        }
+    where
+      _body = ty gamma $ snd b
+  S.LetDecl p f r xs t ->
+    Left
+      $ Decl
+        { name = ident $ fst f,
+          pos = def,
+          body = _body
+        }
+    where
+      _body = case term gamma (S.T $ S.Let p f r xs t def) of
+        Let _ _ _ tm _ -> tm
+        _ -> abort "let decl elab"
 
 
 

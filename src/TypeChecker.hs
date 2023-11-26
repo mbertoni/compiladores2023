@@ -110,7 +110,7 @@ domCod tt = case getTy tt of
   Arrow d c -> return (d, c)
   _ ->
     typeError tt $
-      "Se esperaba un tipo función, pero se obtuvo: " ++ ppTy (getTy tt)
+      "Se esperaba un tipo función, peeeeeeero se obtuvo: " ++ ppTy (getTy tt)
 
 -- | 'tcDecl' chequea el tipo de una declaración
 tcDecl :: (MonadFD4 m) => Decl Term -> m (Decl TTerm)

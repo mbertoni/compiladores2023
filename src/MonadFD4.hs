@@ -33,6 +33,7 @@ module MonadFD4
     MonadFD4,
     module Control.Monad.Except,
     module Control.Monad.State,
+    termEnvironment
   )
 where
 

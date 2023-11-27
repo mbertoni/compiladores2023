@@ -1,0 +1,3 @@
+let rec fact (x:Nat) :Nat = ifz x 
+                            then 1 
+                            else x * (fact5 (x-1))

@@ -1,0 +1,1 @@
+let (100:Nat) = let f (x:Nat):Nat -> x * 2 in f 98

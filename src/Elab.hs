@@ -95,7 +95,7 @@ term gamma = goTerm []
                   where
                     f' = S.bind (fst f) (foldr (S.Arrow . snd) (snd f) args)
                     x' = S.Rec $ first pure x
-                    fun = S.T $ S.Fun (first pure <$> fromList args) t'
+                    fun = S.T $ S.Fun (first pure <$> fromList args) t
 
 ident :: S.Ident -> Name
 ident x = case x of

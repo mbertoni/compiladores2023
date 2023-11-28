@@ -1,3 +1,3 @@
 let x:Nat = (let y:Nat = 10 in y + 2) 
 
-let a:Nat = (let y:Nat = 11 in print "Y = " y + 2) 
+let a:Nat = (let y:Nat = 11 in print "Y = " (y + 2)) 

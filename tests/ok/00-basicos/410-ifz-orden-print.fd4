@@ -10,7 +10,7 @@ let (tc7:Nat) = 9 - 8
 
 let (tc8:Nat) = print "verde" tc6
 
-let (tc11:Nat) = ifz 2+3    then print "Zero = " 2+3 
+let (tc11:Nat) = ifz 2+3  then print "Zero = " (2+3) 
                             else print "NotZero = " 2
 
 let (tc12:Nat) = ifz 0  then print "True" zero 
@@ -18,12 +18,12 @@ let (tc12:Nat) = ifz 0  then print "True" zero
 let (tc13:Nat) = ifz 1  then print "True" zero 
                         else print "False" uno
 
-let (tc14:Nat) = ifz print "Condicion " 2+3
+let (tc14:Nat) = ifz print "Condicion " (2+3)
                     then print "True" 2+7 
                     else print "False" 2
 
-let (tc15:Nat) = ifz zero tc3 tc7
-let (tc16:Nat) = ifz uno tc3 tc7
+let (tc15:Nat) = ifz zero then tc3 else tc7
+let (tc16:Nat) = ifz uno then tc3 else tc7
 
 let (tc17:Nat) = print "verde" tc15
 

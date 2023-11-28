@@ -1,4 +1,4 @@
-let ack54 = let rec ack (m:Nat) (n:Nat) :Nat = ifz m then n+1 
-                                                    else ifz n then ack (m-1) 1
-                                                                else ack (m-1) (ack m (n-1)) 
-                                                in print "ACK 5 4 = " ack 5 4
+let ack54:Nat = let rec ack (m:Nat) (n:Nat) :Nat = ifz m then (n+1 )
+                                                    else ifz n then (ack (m-1) 1)
+                                                                else (ack (m-1) (ack m (n-1)) )
+                                                in print "ACK 3 2 = " (ack 3 2)

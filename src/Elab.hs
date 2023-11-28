@@ -73,8 +73,8 @@ term gamma = goTerm []
                 _ -> go . S.T $ S.Fun (fromList xs) t
           S.Let p f S.NoRec xs t t' ->
             case xs of
-              [] -> Let def _f tau (go t) (close _f (go t'))
-              _ -> Let def _f tau fun (close _f (go t'))
+              [] -> Let def _f tau (go t) (close _f (goTerm (_f : locals) t'))
+              _ -> Let def _f tau fun (close _f (goTerm (_f : locals) t'))
             where
               tau = foldr (Arrow . snd) tau_f (xs >>= goMulti)
               fun = go . S.T $ S.Fun (fromList xs) t
@@ -84,10 +84,10 @@ term gamma = goTerm []
                 args = xs' <> (ys >>= toList . S.flatten)
             in case args of
                 [] ->
-                  Let def _f tau fix (close _f (go t'))
+                  Let def _f tau fix (close _f (goTerm (_f : locals) t'))
                   where
                     tau = Arrow tau_x tau_f
-                    fix = Fix def _f tau _x tau_x (close2 _f _x (go t))
+                    fix = Fix def _f tau _x tau_x (close2 _f _x (goTerm (_f : _x : locals) t))
                     (_f, tau_f) = goBinder f
                     (_x, tau_x) = goBinder x
                 _ ->

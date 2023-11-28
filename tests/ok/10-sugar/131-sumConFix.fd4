@@ -1,0 +1,5 @@
+let fact5:Nat = print "5!! = " ((fix (fac:Nat->Nat) (n:Nat) -> ifz (print "n = " n) then 1 else (n + fac (n-1))) 5)
+# este caso falla al querer encontrar la n, dice que no está en scope
+# pero con let rec anda:
+# let rec fact (x:Nat) :Nat = ifz x then 1 else (x + (fact (x-1)))
+# let f5:Nat = print "5!! = " (fact 5)

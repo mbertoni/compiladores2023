@@ -1,5 +1,9 @@
-:l tests/ok/00-basicos/100-orden-print.fd4
+:l tests/ok/10-sugar/
+-------- 10-sugar/ ----------
 
+
+:l tests/ok/00-basicos/
+-------- 00-basico/100 ----------
 let (orden_de_impresion:Nat) = print "uno! " (print "dos! " 3)
 
 let (f:Nat->Nat) = fun (x:Nat) ->

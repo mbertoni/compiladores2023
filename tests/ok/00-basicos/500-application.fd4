@@ -1,0 +1,3 @@
+let (tc4:Nat->Nat) = fun (x:Nat) = 4 -> x + 9
+
+let (tc5:Nat) = print "x = " tc4 5

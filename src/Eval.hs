@@ -11,9 +11,10 @@ module Eval where
 
 import Common (abort)
 import Core
-import MonadFD4 (MonadFD4, failFD4, lookupDecl, printFD4)
+import MonadFD4 (MonadFD4, failFD4, lookupDecl, printFD4, termEnvironment)
 import PPrint (ppTTerm, ppName)
 import Subst (subst, subst2)
+import Control.Monad.RWS (MonadState(get))
 
 -- | Semántica de operadores binarios
 semOp :: BinaryOp -> Int -> Int -> Int
@@ -25,9 +26,11 @@ eval :: (MonadFD4 m) => TTerm -> m TTerm
 eval (Var _ (Global nm)) = do
   -- unfold and keep going
   mtm <- lookupDecl nm
+  s <- get
   case mtm of
     Nothing ->
-      failFD4 $ "Error de ejecución: variable no declarada: " ++ ppName nm
+      failFD4 $ "Error de ejecución: variable no declarada: " ++ ppName nm 
+                ++ "\nEl environment de globales es " ++ show (termEnvironment s)
     Just t -> eval t
 eval (App p l r) = do
   le <- eval l

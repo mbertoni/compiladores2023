@@ -1,0 +1,1 @@
+let (f4:Nat) = let (f : Nat -> Nat) = fun (x : Nat) -> x + 2 in f 4

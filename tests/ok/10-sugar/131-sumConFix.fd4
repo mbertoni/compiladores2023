@@ -1,1 +1,1 @@
-let f3:Nat = (fix (fact:Nat->Nat) (x:Nat) -> ifz x then 0 else (print "x + fact(x-1) = " (x + fact (x-1)))) 3
+let fact5:Nat = print "5!! = " ((fix (fac:Nat->Nat) (n:Nat) -> ifz (print "n = " n) then 1 else (n + fac (n-1))) 5)

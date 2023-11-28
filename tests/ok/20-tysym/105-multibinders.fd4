@@ -26,4 +26,5 @@ type T25 = T24
 type T26 = T25
 
 
-let f (x y : T24) : T4 = x+y
+let f (x y : T24) : T4 = "print x + y = " x+y
+let sum21:Nat = f 2 1

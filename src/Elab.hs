@@ -69,8 +69,8 @@ term gamma = goTerm []
               (_f, tau_f) = goBinder f
               (_x, tau_x) = goBinder x
               _t = case xs of
-                [] -> go t
-                _ -> go . S.T $ S.Fun (fromList xs) t
+                [] -> goTerm (_f : _x : locals) t
+                _ -> goTerm (_f : _x : locals) . S.T $ S.Fun (fromList xs) t
           S.Let p f S.NoRec xs t t' ->
             case xs of
               [] -> Let def _f tau (go t) (close _f (goTerm (_f : locals) t'))

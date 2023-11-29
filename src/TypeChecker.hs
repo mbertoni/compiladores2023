@@ -34,6 +34,8 @@ tc (Var p (Global n)) bs = case lookup n bs of
   Nothing -> failPosFD4 p $ "Variable no declarada " ++ ppName n
   Just ty -> return (Var (p, ty) (Global n))
 tc (Lit p (N n)) _ = return (Lit (p, Nat) (N n))
+tc (Lit p (S s)) _ = return (Lit (p, String) (S s))
+tc (Lit p (U n)) _ = return (Lit (p, Unit) (U ()))
 tc (Pnt p str t) bs = do
   tt <- tc t bs
   expect Nat tt

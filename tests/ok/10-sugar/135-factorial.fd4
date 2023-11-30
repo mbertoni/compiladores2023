@@ -1,0 +1,13 @@
+let rec prod1 (acum cont x y:Nat) : Nat = ifz (print "x = " x - print "cont = " cont) then acum
+                                                        else prod1 (acum+y) (cont+1) x y
+
+let (p:Nat->Nat)  = fun (x:Nat) -> print "x = " x
+
+let prod (x y:Nat) : Nat = (prod1 0 0 (print "x = " x) (print "y = " y))
+
+
+let rec fact (x:Nat) :Nat = ifz x 
+                            then 1 
+                            else (prod x (fact (x-1)))
+
+let fact5:Nat = print "5! = " (fact 5)

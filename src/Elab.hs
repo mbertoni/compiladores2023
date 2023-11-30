@@ -1,4 +1,3 @@
-
 -- |
 -- Module      : Elab
 -- Description : Elabora un término fully named a uno locally closed.
@@ -11,6 +10,7 @@
 -- fully named (@STerm) a locally closed (@Term@)
 module Elab where
 
+import Common
 import Core
 import Data.Bifunctor
 import Data.Default
@@ -69,12 +69,12 @@ term gamma = goTerm []
               (_f, tau_f) = goBinder f
               (_x, tau_x) = goBinder x
               _t = case xs of
-                [] -> go t
-                _ -> go . S.T $ S.Fun (fromList xs) t
+                [] -> goTerm (_f : _x : locals) t
+                _ -> goTerm (_f : _x : locals) . S.T $ S.Fun (fromList xs) t
           S.Let p f S.NoRec xs t t' ->
             case xs of
-              [] -> Let def _f tau (go t) (close _f (go t'))
-              _ -> Let def _f tau fun (close _f (go t'))
+              [] -> Let def _f tau (go t) (close _f (goTerm (_f : locals) t'))
+              _ -> Let def _f tau fun (close _f (goTerm (_f : locals) t'))
             where
               tau = foldr (Arrow . snd) tau_f (xs >>= goMulti)
               fun = go . S.T $ S.Fun (fromList xs) t
@@ -84,10 +84,10 @@ term gamma = goTerm []
                 args = xs' <> (ys >>= toList . S.flatten)
             in case args of
                 [] ->
-                  Let def _f tau fix (close _f (go t'))
+                  Let def _f tau fix (close _f (goTerm (_f : locals) t'))
                   where
                     tau = Arrow tau_x tau_f
-                    fix = Fix def _f tau _x tau_x (close2 _f _x (go t))
+                    fix = Fix def _f tau _x tau_x (close2 _f _x (goTerm (_f : _x : locals) t))
                     (_f, tau_f) = goBinder f
                     (_x, tau_x) = goBinder x
                 _ ->
@@ -95,10 +95,10 @@ term gamma = goTerm []
                   where
                     f' = S.bind (fst f) (foldr (S.Arrow . snd) (snd f) args)
                     x' = S.Rec $ first pure x
-                    fun = S.T $ S.Fun (first pure <$> fromList args) t'
+                    fun = S.T $ S.Fun (first pure <$> fromList args) t
 
 ident :: S.Ident -> Name
-ident = \case
+ident x = case x of
   S.VarId s -> s
   S.TyId s -> s
 
@@ -133,12 +133,26 @@ binaryOp = \case
 -- ahora está roto en el driver
 declaration :: [Binder] -> S.Declaration -> Either (Decl Term) (Decl Ty)
 declaration gamma = \case
-  S.LetDecl p f r xs t -> Left $ Decl {name = ident $ fst f , pos = def, body = _body}
-    where _body = term gamma (S.T $ S.Let p f r xs t def)
-  S.TypeDecl b -> Right $ Decl {name = ident $ fst b , pos = def, body = _body}
-    where _body = ty gamma $ snd b
-
-
+  S.TypeDecl b ->
+    Right
+      $ Decl
+        { name = ident $ fst b,
+          pos = def,
+          body = _body
+        }
+    where
+      _body = ty gamma $ snd b
+  S.LetDecl p f r xs t ->
+    Left
+      $ Decl
+        { name = ident $ fst f,
+          pos = def,
+          body = _body
+        }
+    where
+      _body = case term gamma (S.T $ S.Let p f r xs t def) of
+        Let _ _ _ tm _ -> tm
+        _ -> abort "let decl elab"
 
 
 

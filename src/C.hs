@@ -1,8 +1,8 @@
 module C ( ir2C ) where
-import Prettyprinter
+import Prettyprinter 
 import Prettyprinter.Render.Terminal ( renderStrict )
 import IR
-import Lang
+import Core hiding (pretty, name)
 import Data.Text (unpack)
 import Data.Char ( isAlpha, ord )
 
@@ -64,7 +64,7 @@ ir2doc (IrVar n) = name n
 ir2doc (IrGlobal n) = name n
 ir2doc (IrCall f args ty) = cast ty (parens (funcast <+> ir2doc f) <> -- func
                                       tupled (map (\a -> voidptr <> ir2doc a) args)) -- args
-ir2doc (IrConst (CNat n)) = pretty n
+-- ir2doc (IrConst (N n)) = pretty n
 ir2doc (IrBinaryOp Add a b) = ir2doc a <+> pretty "+" <+> ir2doc b
 ir2doc (IrBinaryOp Sub a b) = stmts [pretty "fd4_sub" <> tupled [ir2doc a, ir2doc b]]
 ir2doc (IrLet n nty t t') = stmts [hsep [ty2doc nty, name n, pretty "=",  ir2doc t] <> semi <> line <> ir2doc t']
@@ -72,6 +72,7 @@ ir2doc (IrIfZ c a b) = parens $ sep [ir2doc c, nest 2 (pretty "?" <+> ir2doc b),
 ir2doc (IrPrint str t) = stmts [pretty "wprintf" <> parens (pretty "L" <> pretty (show str)),irPrintN (ir2doc t)]
 ir2doc (MkClosure f args) = pretty "fd4_mkclosure" <> tupled (name f : pretty (length args) : map ir2doc args)
 ir2doc (IrAccess t ty i) = cast ty $ parens (ir2doc t) <> brackets (pretty i)
+ir2doc _ = funcast
 
 op2doc :: BinaryOp -> Doc a
 op2doc Add = pretty "+"

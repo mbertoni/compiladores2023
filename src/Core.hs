@@ -94,10 +94,10 @@ newtype Scope2 info var = Sc2 {unSc2 :: Tm info var}
   deriving stock (Traversable)
 
 instance (Show info, Show var) => Show (Scope info var) where
-  show (Sc1 t) = "{" ++ show t ++ "}"
+  show (Sc1 t) = "|" ++ show t ++ "|"
 
 instance (Show info, Show var) => Show (Scope2 info var) where
-  show (Sc2 t) = "{{" ++ show t ++ "}}"
+  show (Sc2 t) = "||" ++ show t ++ "||"
 
 -- Instancias para abreviar cuando depuramos
 instance Num Literal where

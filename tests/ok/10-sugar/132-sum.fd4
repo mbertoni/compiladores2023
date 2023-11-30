@@ -1,0 +1,2 @@
+let rec sum (x y z:Nat):Nat = ifz x then z else (sum 0 0 (x + y + z))
+let sum432:Nat = print "4 + 3 + 2 = " (sum 4 3 2)

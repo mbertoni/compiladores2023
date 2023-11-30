@@ -1,12 +1,12 @@
 module IR where
 
-import Lang
+import Core
 
 data Ir = IrVar Name
         | IrGlobal Name
         | IrCall Ir [Ir] IrTy
                         -- ^ Tipo de expr final
-        | IrConst Const
+        | IrConst Literal
         | IrPrint String Ir
         | IrBinaryOp BinaryOp Ir Ir 
         | IrLet Name IrTy Ir Ir

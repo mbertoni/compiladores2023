@@ -36,7 +36,8 @@ data Frame
   deriving (Show)
 
 seek :: (MonadFD4 m) => TTerm -> Env -> Continuation -> m Value
-seek term env k = do  printSeekStatus term env k 
+seek term env k = do  
+                      printSeekStatus term env k 
                       case term of
                         Pnt _ s t -> seek t env (PntT s : k)
                         BOp _ op t u -> seek t env (BOpL op u env : k)
@@ -58,7 +59,8 @@ seek term env k = do  printSeekStatus term env k
 
 destroy :: (MonadFD4 m) => Value -> Continuation -> m Value
 destroy v [] = return v
-destroy v (fr : k) = do printDestroyStatus v (fr:k) 
+destroy v (fr : k) = do 
+                        printDestroyStatus v (fr:k) 
                         case fr of
                           PntT lit -> printFD4 (unS lit ++ show v) >> destroy v k
                           BOpL op term env -> seek term env (BOpR op v : k)
@@ -95,7 +97,8 @@ testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
                                (Left _)  -> print "Error"
 
 testRun' :: MonadFD4 m => TTerm -> m ()
-testRun' t = do printFD4 "Comienza el run:"
+testRun' t = do 
+                -- printFD4 "Comienza el run:"
                 v <- seek t [] []
                 printFD4 $ show v
                 return ()
@@ -109,27 +112,3 @@ printDestroyStatus:: (MonadFD4 m) => Value -> Continuation -> m()
 printDestroyStatus v k = do 
           printFD4 $ show v  ++ " - " ++ show k
           return ()
-
-
-d :: (Pos,Ty)
-d = (def::Common.Pos, Nat)
-
-tc1 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) -- \x -> x+4
-tc2 = App d 5 (Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0)) (4))) ) 
-tc3 = Let d "x" Nat 4 (Sc1 (BOp d Add (Var d (Bound 0)) 9)) -- let x = 4 in x+9
-tc4 = Lam d "x" Nat (Sc1 (BOp d Add (Var d (Bound 0) ) 9) ) -- \x -> x+9
-tc5 = App d tc4 5
-tc6 = Pnt d (S "pastito") tc3
-tc7 = BOp d Sub 9 8
-tc8 = Pnt d (S "verde") tc6
-tc9 = IfZ d 0 1 2
-tc10 = IfZ d 1 1 2
-tc11 = IfZ d (BOp d Add 2 3) (Pnt d (S "True") 1) (Pnt d (S "False") 2)
-tc12 = IfZ d 0 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
-tc13 = IfZ d 1 (Pnt d (S "True") (BOp d Add 2 3)) (Pnt d (S "False") 2)
-tc14 = IfZ d (Pnt d (S "Condicion") (BOp d Add 2 3)) (Pnt d (S "True") (BOp d Add 2 7)) (Pnt d (S "False") 2)
-tc15 = IfZ d 0 tc3 tc7
-tc16 = IfZ d 1 tc3 tc7
-tc17 = Pnt d (S "pastito") tc15
-tc18 = Pnt d (S "pastito") tc16
-

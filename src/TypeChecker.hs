@@ -34,6 +34,8 @@ tc (Var p (Global n)) bs = case lookup n bs of
   Nothing -> failPosFD4 p $ "Variable no declarada " ++ ppName n
   Just ty -> return (Var (p, ty) (Global n))
 tc (Lit p (N n)) _ = return (Lit (p, Nat) (N n))
+tc (Lit p (S s)) _ = return (Lit (p, String) (S s))
+tc (Lit p (U n)) _ = return (Lit (p, Unit) (U ()))
 tc (Pnt p str t) bs = do
   tt <- tc t bs
   expect Nat tt
@@ -110,7 +112,7 @@ domCod tt = case getTy tt of
   Arrow d c -> return (d, c)
   _ ->
     typeError tt $
-      "Se esperaba un tipo función, pero se obtuvo: " ++ ppTy (getTy tt)
+      "Se esperaba un tipo función, peeeeeeero se obtuvo: " ++ ppTy (getTy tt)
 
 -- | 'tcDecl' chequea el tipo de una declaración
 tcDecl :: (MonadFD4 m) => Decl Term -> m (Decl TTerm)

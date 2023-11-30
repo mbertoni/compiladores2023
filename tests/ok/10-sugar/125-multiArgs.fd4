@@ -1,0 +1,2 @@
+let (f:Nat->Nat->Nat) = fun (x:Nat) (y:Nat) -> x + y
+let xy:Nat = print "5+4 = " (f 5 4)

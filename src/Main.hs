@@ -9,8 +9,8 @@ module Main where
 
 -- import Control.Monad
 
-import qualified CEK (eval)
-import Common (abort)
+import qualified CEK
+-- import Common
 import Control.Exception (IOException, catch)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.Trans
@@ -36,8 +36,8 @@ import System.Console.Haskeline
 import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPrint, hPutStrLn, stderr)
 import TypeChecker (tc, tcDecl)
-import ByteCompile
-import Optimizer
+-- import ByteCompile
+-- import Optimizer
 
 prompt :: String
 prompt = "FD4> "
@@ -69,7 +69,7 @@ parseMode =
               )
             <|> flag Eval Eval (long "eval" <> short 'e' <> help "Evaluar un programa")
         )
-    -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")
+    -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")  <- sería acá lo que hay que descomentar?
     -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonización")
     -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
     -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
@@ -97,9 +97,11 @@ main = execParser opts >>= go
         )
 
     go :: (Mode, Bool, [FilePath]) -> IO ()
-    go (Interactive, opt, files) =
-      runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
-    go (m, opt, files) = runOrFail (Conf opt m) $ mapM_ compileFile files
+    go (Interactive, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
+    -- go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
+    -- go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
+    -- go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
+    go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
 runOrFail :: Conf -> FD4 a -> IO a
 runOrFail c m = do
@@ -180,8 +182,14 @@ handleDeclaration d = do
       Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     Interactive -> case Elab.declaration gamma d of
       Left (C.Decl p x tm) -> do
+        printFD4 ("\nBefore Elabing: " ++ show d)
+        printFD4 ("\nEnvironment: " ++ show gamma)
+        printFD4 ("\nRaw: " ++ show tm)
         tt <- tcDecl (C.Decl p x tm)
-        te <- CEK.eval (C.body tt)
+        printFD4 ("\nTypeChecked: " ++ show tt)
+        printFD4 ("\nEvaling: ")
+        te <- eval (C.body tt)
+        printFD4 ("\nAfter Evaling: " ++ show te)
         addTermDecl (C.Decl p x te)
       Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     Typecheck -> do

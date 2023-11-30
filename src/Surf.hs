@@ -3,9 +3,9 @@ module Surf where
 import Common
 import Data.Bifunctor
 import Data.Char
+import Data.Default
 import Data.List.NonEmpty
 import Data.String (IsString (..))
-import Data.Default
 
 data Ident
   = VarId {unVarId :: String}
@@ -141,8 +141,8 @@ instance Show Ty where
     Arrow t t' -> show t <> " -> " <> show t'
     Alias n -> show n
 
-deriving instance (Show a) => Show (Rec a)
+deriving instance Show a => Show (Rec a)
 
-deriving instance (Show t) => Show (Decl t)
+deriving instance Show t => Show (Decl t)
 
-deriving instance (Show t) => Show (Tm t)
+deriving instance Show t => Show (Tm t)

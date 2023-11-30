@@ -43,7 +43,10 @@ executable compiladores2023
     Subst
     Surf
     TypeChecker
-
+    IR
+    ClosureConvert
+    
+  
   hs-source-dirs:     src
 
   default-language:   GHC2021

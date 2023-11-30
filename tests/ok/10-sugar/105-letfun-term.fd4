@@ -1,0 +1,2 @@
+let f4:Nat = let (f : Nat -> Nat) = fun (x : Nat) -> x + 2 
+    in print "f 4 = " (f 4)

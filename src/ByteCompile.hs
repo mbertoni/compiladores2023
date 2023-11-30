@@ -18,15 +18,10 @@ import Data.Binary.Get (getWord32le, isEmpty)
 import Data.Binary.Put (putWord32le)
 import Data.ByteString.Lazy qualified as BS
 import Data.Char
-import Data.Default
 import Data.List (intercalate)
 import Core 
-import Common
 import Global
 import MonadFD4
-import Data.Functor.Classes (eq1)
-import System.Process.Extra (CreateProcess(env))
-import Data.String (String)
 import Subst
 type Opcode = Int
 

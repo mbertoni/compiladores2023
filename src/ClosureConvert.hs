@@ -6,7 +6,6 @@ import Common (abort)
 import Subst
 import Control.Monad.State
 import Control.Monad.Writer
-import MonadFD4 (MonadFD4)
 
 convertType :: Ty -> IrTy
 -- TODO

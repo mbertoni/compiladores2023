@@ -71,12 +71,21 @@ open2 nm1 nm2 (Sc2 t) = varChanger (\_ p n -> Var p (Free n)) bnd t
 -- generar ningún nombre, y por lo tanto evitamos la necesidad de
 -- nombres frescos.
 subst :: Tm info Var -> Scope info Var -> Tm info Var
-subst n (Sc1 m) = varChanger (\_ p n -> Var p (Free n)) bnd m
+subst n (Sc1 m) = varChanger (\_ p x -> Var p (Free x)) bnd m
   where
     bnd depth p i
       | i < depth = Var p (Bound i)
       | i == depth = n
       | otherwise = abort "substN: M is not LC"
+
+substAll :: [Tm info Var] -> Tm info Var -> Tm info Var
+substAll ns = varChanger (\_ p n -> Var p (Free n)) bnd
+   where 
+    nns = length ns
+    bnd depth p i
+      | i <  depth = Var p (Bound i)
+      | i >= depth && i < depth + nns = ns !! (i - depth)
+      | otherwise = abort "substAll: M is not LC"
 
 -- `subst2 u1 u2 t1 sustituye índice de de Bruijn 0 en t por u1 y el índice 1 por u2.
 -- Notar que t es un Scope con dos índices que escapan el término.

@@ -6,20 +6,34 @@ import Data.Default (def)
 import Eval (semOp)
 import MonadFD4
 import Global
+import Subst
 
 data Value
   = VNat Int
   | CFun Name TTerm Env
   | CFix Name Name TTerm Env
-  deriving (Show)
+
+instance Show Value where
+  show (VNat n) = show n
+  show x@CFun{} = "Fun: "++ show x
+  show x@CFix{} = "Fix: "++ show x
 
 lit2Value :: Literal -> Value
 lit2Value (N i) = VNat i
 lit2Value (S s) = abort "not implemented"
+lit2Value (U _) = abort "not implemented"
 
 val2TTerm :: Value -> TTerm
 val2TTerm (VNat i) = Lit (def, Nat) (N i)
-val2TTerm _ = abort "immediate value expected"
+val2TTerm (CFun n t e) = substAll termEnv $ Lam i n ty (Sc1 t)                          
+                          where i@(pos,ty) = getInfo t
+                                termEnv = map val2TTerm e  
+val2TTerm (CFix fn xn t e) =  substAll termEnv $ Fix i fn fty xn xty (Sc2 t)
+                                where i@(pos,fty) = getInfo t
+                                      termEnv = map val2TTerm e  
+                                      xty = getTy t -- creo que acá estoy batting the fruit
+
+
 
 type Env = [Value]
 
@@ -37,7 +51,7 @@ data Frame
 
 seek :: (MonadFD4 m) => TTerm -> Env -> Continuation -> m Value
 seek term env k = do  
-                      printSeekStatus term env k 
+                      -- printSeekStatus term env k 
                       case term of
                         Pnt _ s t -> seek t env (PntT s : k)
                         BOp _ op t u -> seek t env (BOpL op u env : k)
@@ -60,9 +74,11 @@ seek term env k = do
 destroy :: (MonadFD4 m) => Value -> Continuation -> m Value
 destroy v [] = return v
 destroy v (fr : k) = do 
-                        printDestroyStatus v (fr:k) 
+                        -- printDestroyStatus v (fr:k) 
                         case fr of
-                          PntT lit -> printFD4 (unS lit ++ show v) >> destroy v k
+                          PntT lit@(S st) -> do printFD4 $ st++show v
+                                                destroy v k
+                          PntT _          -> destroy v k
                           BOpL op term env -> seek term env (BOpR op v : k)
                           BOpR op value -> case (value, v) of
                             (VNat l, VNat r) -> destroy (VNat $ semOp op l r) k
@@ -79,6 +95,9 @@ destroy v (fr : k) = do
                           LetD _ t env -> seek t (v : env) k -- olvido tu nombre?
 
 eval :: (MonadFD4 m) => TTerm -> m TTerm
+eval t = do v <- seek t [] []
+            return $ val2TTerm v
+            
 -- Ayer escribimos esto
 -- eval t = do
 --   v <- seek t [] []
@@ -88,7 +107,7 @@ eval :: (MonadFD4 m) => TTerm -> m TTerm
 -- eval t = fmap val2TTerm $ seek t [] []
 
 -- el linter me dice que haga esto
-eval t = val2TTerm <$> seek t [] []
+-- eval t = val2TTerm <$> seek t [] []
 
 
 testRun :: TTerm -> IO ()

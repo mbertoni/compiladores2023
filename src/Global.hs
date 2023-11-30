@@ -42,10 +42,11 @@ data Mode
   = Interactive
   | Typecheck
   | Eval
+  | CEK
   | InteractiveCEK
 
--- \| Bytecompile
--- \| RunVM
+  | Bytecompile
+  | RunVM
 -- \| CC
 -- \| Canon
 -- \| Assembler

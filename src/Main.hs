@@ -54,7 +54,7 @@ parseMode =
             )
             <|> flag'
               InteractiveCEK
-              ( long "interactiveCEK"
+              ( long "icek"
                   <> short 'k'
                   <> help "Ejecutar de forma interactiva en la CEK"
               )
@@ -68,6 +68,7 @@ parseMode =
                   <> help "Ejecutar en forma interactiva"
               )
             <|> flag Eval Eval (long "eval" <> short 'e' <> help "Evaluar un programa")
+            <|> flag CEK CEK (long "cek" <> short 'k' <> help "Evaluar un programa con la CEK")
         )
     -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")  <- sería acá lo que hay que descomentar?
     -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonización")
@@ -98,6 +99,7 @@ main = execParser opts >>= go
 
     go :: (Mode, Bool, [FilePath]) -> IO ()
     go (Interactive, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
+    -- go (InteractiveCEK, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     -- go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
     -- go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
     -- go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
@@ -173,37 +175,45 @@ handleDeclaration :: (MonadFD4 m) => S.Declaration -> m ()
 handleDeclaration d = do
   m <- getMode
   gamma <- gets globalTypeContext
+  let elaborated = Elab.declaration gamma d
   case m of
-    -- InteractiveCEK -> case Elab.declaration gamma d of -- TODO Es un compilador mono-comando, como la canilla!!!
-    --   Left (C.Decl p x tm) -> do
-    --     printFD4 ("\nCEK")
-    --     printFD4 ("\nBefore Elabing: " ++ show d)
-    --     printFD4 ("\nEnvironment: " ++ show gamma)
-    --     printFD4 ("\nRaw: " ++ show tm)
-    --     tt <- tcDecl (C.Decl p x tm)
-    --     printFD4 ("\nTypeChecked: " ++ show tt)
-    --     printFD4 ("\nEvaling: ")
-    --     te <- CEK.eval (C.body tt)
-    --     addTermDecl (C.Decl p x te)
-    --     printFD4 ("\nAfter Evaling: " ++ show te)
-    --   Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
-    Interactive -> case Elab.declaration gamma d of
+    Eval -> case elaborated of
       Left (C.Decl p x tm) -> do
-        printFD4 ("\nBefore Elabing: " ++ show d)
-        printFD4 ("\nEnvironment: " ++ show gamma)
-        printFD4 ("\nRaw: " ++ show tm)
+        -- printFD4 ("\nBefore Elabing: " ++ show d)
+        -- printFD4 ("\nEnvironment: " ++ show gamma)
+        -- printFD4 ("\nRaw: " ++ show tm)
         tt <- tcDecl (C.Decl p x tm)
-        printFD4 ("\nTypeChecked: " ++ show tt)
-        printFD4 ("\nEvaling: ")
+        -- printFD4 ("\nTypeChecked: " ++ show tt)
+        -- printFD4 "\nEvaling: "
         te <- eval (C.body tt)
-        printFD4 ("\nAfter Evaling: " ++ show te)
+        -- printFD4 ("\nAfter Evaling: " ++ show te)
         addTermDecl (C.Decl p x te)
       Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
+    CEK -> case elaborated of -- TODO Es un compilador mono-comando, como la canilla!!!
+      Left (C.Decl p x tm) -> do
+        -- printFD4 ("\nBefore Elabing: " ++ show d)
+        -- printFD4 ("\nEnvironment: " ++ show gamma)
+        -- printFD4 ("\nRaw: " ++ show tm)
+        tt <- tcDecl (C.Decl p x tm)
+        -- printFD4 ("\nTypeChecked: " ++ show tt)
+        -- printFD4 "\nEvaling: "
+        te <- CEK.eval (C.body tt)
+        -- printFD4 ("\nAfter Evaling: " ++ show te)
+        addTermDecl (C.Decl p x te)
+      Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
+    Interactive -> case elaborated of
+      Left (C.Decl p x tm) -> do
+        tt <- tcDecl (C.Decl p x tm)
+        te <- eval (C.body tt)
+        addTermDecl (C.Decl p x te)
+      Right (C.Decl p x ty) -> 
+        addTypeDecl (C.Decl p x ty)
     Typecheck -> do
       f <- getLastFile
       printFD4 ("Chequeando tipos de " ++ f)
-      case Elab.declaration gamma d of
+      case elaborated of
         Left (C.Decl p x tm) -> do
+          printFD4 ("\nTypechecking")
           tt <- tcDecl (C.Decl p x tm)
           addTermDecl tt
           ppterm <- ppTermDecl tt
@@ -214,12 +224,6 @@ handleDeclaration d = do
           printFD4 ppty
     -- opt <- getOpt
     -- td' <- if opt then optimize td else td
-    Eval -> case Elab.declaration gamma d of
-      Left (C.Decl p x tm) -> do
-        tt <- tcDecl (C.Decl p x tm)
-        te <- eval (C.body tt)
-        addTermDecl (C.Decl p x te)
-      Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     _ -> return ()
 
 -- do

@@ -36,6 +36,7 @@ import System.Console.Haskeline
 import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPrint, hPutStrLn, stderr)
 import TypeChecker (tc, tcDecl)
+import qualified Control.Monad as Control.Monad.ExceptT
 -- import ByteCompile
 -- import Optimizer
 
@@ -176,32 +177,33 @@ handleDeclaration d = do
   m <- getMode
   gamma <- gets globalTypeContext
   let elaborated = Elab.declaration gamma d
+  let debugging = True
   case m of
     Eval -> case elaborated of
       Left (C.Decl p x tm) -> do
-        printFD4 ("\nBefore Elabing: " ++ show d)
-        printFD4 ("\nEnvironment: " ++ show gamma)
-        printFD4 ("\nRaw: " ++ show tm)
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nBefore Elabing: " ++ show d) 
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nEnvironment: " ++ show gamma)
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nRaw: " ++ show tm)
         tt <- tcDecl (C.Decl p x tm)
-        printFD4 ("\nTypeChecked: " ++ show tt)
-        printFD4 "\nEvaling: "
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nTypeChecked: " ++ show tt)
+        Control.Monad.ExceptT.when debugging $ printFD4 "\nEvaling: "
         te <- eval (C.body tt)
-        printFD4 ("\nAfter Evaling: " ++ show te)
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nAfter Evaling: " ++ show te)
         addTermDecl (C.Decl p x te)
-        printFD4 ("\nEnvironment: " ++ show gamma)
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nEnvironment: " ++ show gamma)
       Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     CEK -> case elaborated of -- TODO Es un compilador mono-comando, como la canilla!!!
       Left (C.Decl p x tm) -> do
-        printFD4 ("\nBefore Elabing: " ++ show d)
-        printFD4 ("\nEnvironment: " ++ show gamma)
-        printFD4 ("\nRaw: " ++ show tm)
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nBefore Elabing: " ++ show d)
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nEnvironment: " ++ show gamma)
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nRaw: " ++ show tm)
         tt <- tcDecl (C.Decl p x tm)
-        printFD4 ("\nTypeChecked: " ++ show tt)
-        printFD4 "\nEvaling: "
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nTypeChecked: " ++ show tt)
+        Control.Monad.ExceptT.when debugging $ printFD4 "\nEvaling: "
         te <- CEK.eval (C.body tt)
-        printFD4 ("\nAfter Evaling: " ++ show te)
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nAfter Evaling: " ++ show te)
         addTermDecl (C.Decl p x te)
-        printFD4 ("\nEnvironment: " ++ show gamma)
+        Control.Monad.ExceptT.when debugging $ printFD4 ("\nEnvironment: " ++ show gamma)
       Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     Interactive -> case elaborated of
       Left (C.Decl p x tm) -> do
@@ -212,10 +214,10 @@ handleDeclaration d = do
         addTypeDecl (C.Decl p x ty)
     Typecheck -> do
       f <- getLastFile
-      printFD4 ("Chequeando tipos de " ++ f)
+      Control.Monad.ExceptT.when debugging $ printFD4 ("Chequeando tipos de " ++ f)
       case elaborated of
         Left (C.Decl p x tm) -> do
-          printFD4 ("\nTypechecking")
+          Control.Monad.ExceptT.when debugging $ printFD4 ("\nTypechecking")
           tt <- tcDecl (C.Decl p x tm)
           addTermDecl tt
           ppterm <- ppTermDecl tt

@@ -83,7 +83,7 @@ destroy v (fr : k) =  case fr of
                           AppL t env -> seek t env (AppR v : k)
                           AppR clos -> case clos of
                             CFun _ _ _ t env -> seek t (v : env) k
-                            CFix _ _ _ _ _ t env -> seek t (clos : v : env) k
+                            CFix _ _ _ _ _ t env -> seek t (v:clos:env) k
                             _ -> abort "error de tipos runtime en AppR"
                           LetD _ t env -> seek t (v : env) k -- olvido tu nombre?
 
@@ -91,18 +91,6 @@ eval :: (MonadFD4 m) => TTerm -> m TTerm
 eval t = do v <- seek t [] []
             return $ val2TTerm v
             
--- Ayer escribimos esto
--- eval t = do
---   v <- seek t [] []
---   return (val2TTerm v)
-
--- Hoy se me ocurre esto
--- eval t = fmap val2TTerm $ seek t [] []
-
--- el linter me dice que haga esto
--- eval t = val2TTerm <$> seek t [] []
-
-
 testRun :: TTerm -> IO ()
 testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
                 case resRun of (Right r) -> print r

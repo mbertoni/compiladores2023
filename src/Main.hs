@@ -177,7 +177,7 @@ handleDeclaration d = do
   m <- getMode
   gamma <- gets globalTypeContext
   let elaborated = Elab.declaration gamma d
-  let debugging = True
+  let debugging = False
   case m of
     Eval -> case elaborated of
       Left (C.Decl p x tm) -> do

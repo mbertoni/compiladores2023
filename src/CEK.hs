@@ -25,13 +25,14 @@ lit2Value (U _) = abort "not implemented"
 
 val2TTerm :: Value -> TTerm
 val2TTerm (VNat i) = Lit (def, Nat) (N i)
-val2TTerm (CFun n t e) = substAll termEnv $ Lam i n ty (Sc1 t)                          
+val2TTerm (CFun x t e) = substAll termEnv $ Lam i x (Arrow ty tty) (Sc1 t)                          
                           where i@(pos,ty) = getInfo t
+                                tty = getTy t
                                 termEnv = map val2TTerm e  
 val2TTerm (CFix fn xn t e) =  substAll termEnv $ Fix i fn fty xn xty (Sc2 t)
-                                where i@(pos,fty) = getInfo t
+                                where i@(pos,xty) = getInfo t
                                       termEnv = map val2TTerm e  
-                                      xty = getTy t -- creo que acá estoy batting the fruit
+                                      fty = getTy t -- creo que acá estoy batting the fruit
 
 
 

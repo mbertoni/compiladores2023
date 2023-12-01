@@ -13,6 +13,8 @@ uno! 3
 
 After Evaling: Lit (_,Nat) (N {unN = 3})
 
+Environment: []
+
 Before Elabing: LetDecl P (f,__Nat__ -> __Nat__) NoRec [] Fun ((x :| [],__Nat__) :| []) IfZ Var x Pnt "uno! " Lit 1 Pnt "dos! " Lit 2
 
 Environment: []
@@ -24,6 +26,8 @@ TypeChecked: Decl {pos = _, name = "f", body = Lam (_,Arrow Nat Nat) "x" Nat |If
 Evaling: 
 
 After Evaling: Lam (_,Arrow Nat Nat) "x" Nat |IfZ (_,Nat) (Var (_,Nat) (Bound 0)) (Pnt (_,Nat) (S {unS = "uno! "}) (Lit (_,Nat) (N {unN = 1}))) (Pnt (_,Nat) (S {unS = "dos! "}) (Lit (_,Nat) (N {unN = 2})))|
+
+Environment: []
 
 Before Elabing: LetDecl P (test,__Nat__) NoRec [] Let P (a,__Nat__) NoRec [] App Var f Lit 0 Let P (b,__Nat__) NoRec [] App Var f Lit 1 Lit 0
 
@@ -38,3 +42,5 @@ uno! 1
 dos! 2
 
 After Evaling: Lit (_,Nat) (N {unN = 0})
+
+Environment: []

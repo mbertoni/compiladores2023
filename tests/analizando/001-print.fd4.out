@@ -11,3 +11,5 @@ Evaling:
 X = 246
 
 After Evaling: Lit (_,Nat) (N {unN = 246})
+
+Environment: []

@@ -138,14 +138,21 @@ declaration gamma = \case
       $ Decl
         { name = ident $ fst b,
           pos = def,
-          body = ty gamma $ snd b
+          body = _body
         }
+    where
+      _body = ty gamma $ snd b
   S.LetDecl p f r xs t ->
     Left
       $ Decl
         { name = ident $ fst f,
           pos = def,
-          body = case term gamma (S.T $ S.Let p f r xs t def) of
-                    Let _ _ _ tm _ -> tm
-                    _ -> abort "let decl elab"
+          body = _body
         }
+    where
+      _body = case term gamma (S.T $ S.Let p f r xs t def) of
+        Let _ _ _ tm _ -> tm
+        _ -> abort "let decl elab"
+
+
+

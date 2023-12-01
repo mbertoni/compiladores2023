@@ -179,27 +179,29 @@ handleDeclaration d = do
   case m of
     Eval -> case elaborated of
       Left (C.Decl p x tm) -> do
-        -- printFD4 ("\nBefore Elabing: " ++ show d)
-        -- printFD4 ("\nEnvironment: " ++ show gamma)
-        -- printFD4 ("\nRaw: " ++ show tm)
+        printFD4 ("\nBefore Elabing: " ++ show d)
+        printFD4 ("\nEnvironment: " ++ show gamma)
+        printFD4 ("\nRaw: " ++ show tm)
         tt <- tcDecl (C.Decl p x tm)
-        -- printFD4 ("\nTypeChecked: " ++ show tt)
-        -- printFD4 "\nEvaling: "
+        printFD4 ("\nTypeChecked: " ++ show tt)
+        printFD4 "\nEvaling: "
         te <- eval (C.body tt)
-        -- printFD4 ("\nAfter Evaling: " ++ show te)
+        printFD4 ("\nAfter Evaling: " ++ show te)
         addTermDecl (C.Decl p x te)
+        printFD4 ("\nEnvironment: " ++ show gamma)
       Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     CEK -> case elaborated of -- TODO Es un compilador mono-comando, como la canilla!!!
       Left (C.Decl p x tm) -> do
-        -- printFD4 ("\nBefore Elabing: " ++ show d)
-        -- printFD4 ("\nEnvironment: " ++ show gamma)
-        -- printFD4 ("\nRaw: " ++ show tm)
+        printFD4 ("\nBefore Elabing: " ++ show d)
+        printFD4 ("\nEnvironment: " ++ show gamma)
+        printFD4 ("\nRaw: " ++ show tm)
         tt <- tcDecl (C.Decl p x tm)
-        -- printFD4 ("\nTypeChecked: " ++ show tt)
-        -- printFD4 "\nEvaling: "
+        printFD4 ("\nTypeChecked: " ++ show tt)
+        printFD4 "\nEvaling: "
         te <- CEK.eval (C.body tt)
-        -- printFD4 ("\nAfter Evaling: " ++ show te)
+        printFD4 ("\nAfter Evaling: " ++ show te)
         addTermDecl (C.Decl p x te)
+        printFD4 ("\nEnvironment: " ++ show gamma)
       Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     Interactive -> case elaborated of
       Left (C.Decl p x tm) -> do

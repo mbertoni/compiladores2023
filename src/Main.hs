@@ -37,6 +37,7 @@ import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPrint, hPutStrLn, stderr)
 import TypeChecker (tc, tcDecl)
 import qualified Control.Monad as Control.Monad.ExceptT
+import ByteCompile (byteCompileModule)
 -- import ByteCompile
 -- import Optimizer
 
@@ -59,8 +60,8 @@ parseMode =
                   <> short 'k'
                   <> help "Ejecutar de forma interactiva en la CEK"
               )
-            -- <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
-            -- <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
+            <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
+            <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
             <|> flag
               Interactive
               Interactive
@@ -103,8 +104,15 @@ main = execParser opts >>= go
     -- go (InteractiveCEK, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     -- go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
     -- go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
-    -- go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
+    go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
     go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
+
+bytecompile :: MonadFD4 m => FilePath -> m ()
+bytecompile f = do 
+  decls <- loadFile f
+  dec <- mapM handleDeclaration decls
+  -- bc <- byteCompileModule dec
+  return ()
 
 runOrFail :: Conf -> FD4 a -> IO a
 runOrFail c m = do
@@ -205,6 +213,9 @@ handleDeclaration d = do
         addTermDecl (C.Decl p x te)
         Control.Monad.ExceptT.when debugging $ printFD4 ("\nEnvironment: " ++ show gamma)
       Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
+    -- Bytecompile -> case elaborated of
+    --   Left (C.Decl p x tm) -> do
+    --   Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
     Interactive -> case elaborated of
       Left (C.Decl p x tm) -> do
         tt <- tcDecl (C.Decl p x tm)

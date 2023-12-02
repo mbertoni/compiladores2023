@@ -190,14 +190,15 @@ string2bc = map ord
 bc2string :: Bytecode -> String
 bc2string = map chr
 
--- type Module = [Decl TTerm] 
 byteCompileModule :: Module -> Bytecode
-byteCompileModule m = let tt = declIntoTerm m in bcc (getTerm tt)
+byteCompileModule m = bcc (getTerm $ declIntoTerm m)
   
 {- 
   let x = t1
   let y = t2
   let z = t3 
+  =>
+  let x = t1 in (let y = t2 in t3 )
 -} 
 declIntoTerm :: Module -> TTerm
 declIntoTerm [] = abort "Módulo vacío"
@@ -207,9 +208,6 @@ declIntoTerm (dtt:dtts) = Let i dtt.name ty dtt.body (close dtt.name rest)
             rest = declIntoTerm dtts
             i = getInfo dtt.body
             ty = getTy dtt.body
-
-  
-
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()
@@ -247,9 +245,8 @@ run ck@(FUNCTION:size:c) e s = do printState ck e s
 run ck@(PRINTN:c) e ss@(Natural n:s) = do   printState ck e ss
                                             printFD4 (show n) 
                                             run c e (Natural n:s)
-run ck@(PRINT:c) e s = do 
-                          -- printState ck e s
-                          -- printFD4 (show strToPrint) 
+run ck@(PRINT:c) e s = do printState ck e s
+                          printFD4 (show strToPrint) 
                           run cDropped e s
   where strToPrint = bc2string (takeUntilNull c)  -- takeUntilNull == takeWhile  (/= NULL) ??
         cDropped = dropUntilNull c                -- dropUntilNull == dropWhile  (/= NULL) ??
@@ -263,8 +260,8 @@ run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) =
         then run cOnlyTrue e s
         else run (drop (lenTrue +2) c) e s 
         -- Tengo que droppear el JUMPFALSE, voy directo a ejecutar 
-      where cDropped = drop (lenTrue+1) c
-            cCommon = drop (head cDropped +1) cDropped
+      where cDropped  = drop (lenTrue+1) c
+            cCommon   = drop (head cDropped +1) cDropped
             cOnlyTrue = take lenTrue c ++ cCommon
 {-
 Otra opción para el JUMP, usando CJUMP 
@@ -279,10 +276,10 @@ run (JUMP:len:c) e s  = run (drop (len+2) c) e s
 
 run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
                                         run c e (Fun ef cf:s)
-  where ef = Fun ef cf : env 
+                                        where ef = Fun ef cf : env 
 run (RETURN:_) _ ss@(v:RetAd e c:s) = run c e (v:s)
 run ck@[STOP] e s = do  printState ck e s
-                        printFD4 $ "Finnnn: " ++ showVal s
+                        -- printFD4 $ "Finnnn: " ++ showVal s
                         return ()
 run (STOP:xs) e s = failFD4 "Tengo un STOP y más instrucciones"
 run _ _ _ = failFD4 "Error en el ByteCode"

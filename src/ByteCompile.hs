@@ -23,6 +23,7 @@ import Core
 import MonadFD4
 import Subst
 import Common (abort)
+import Global ( Conf(Conf), Mode(Interactive) ) 
 type Opcode = Int
 
 type Bytecode = [Int]
@@ -61,36 +62,52 @@ no podríamos hacer pattern-matching con `call`.
 En lo posible, usar estos códigos exactos para poder ejecutar un
 mismo bytecode compilado en distintas implementaciones de la máquina.
 -}
+pattern NULL :: Int
 pattern NULL = 0
 
+pattern RETURN :: Int
 pattern RETURN = 1
 
+pattern CONST :: Int
 pattern CONST = 2
 
+pattern ACCESS :: Int
 pattern ACCESS = 3
 
+pattern FUNCTION :: Int
 pattern FUNCTION = 4
 
+pattern CALL :: Int
 pattern CALL = 5
 
+pattern ADD :: Int
 pattern ADD = 6
 
+pattern SUB :: Int
 pattern SUB = 7
 
+pattern FIX :: Int
 pattern FIX = 9
 
+pattern STOP :: Int
 pattern STOP = 10
 
+pattern SHIFT :: Int
 pattern SHIFT = 11
 
+pattern DROP :: Int
 pattern DROP = 12
 
+pattern PRINT :: Int
 pattern PRINT = 13
 
+pattern PRINTN :: Int
 pattern PRINTN = 14
 
+pattern JUMP :: Int
 pattern JUMP = 15 
 
+pattern TAILCALL :: Int
 pattern TAILCALL = 16 
 -- pattern JUMPTRUE = 16
 -- pattern JUMPFALSE = 17
@@ -116,7 +133,6 @@ showOps (PRINT : xs) =
   let (msg, _ : rest) = span (/= NULL) xs
   in ("PRINT " ++ show (bc2string msg)) : showOps rest
 showOps (PRINTN : xs) = "PRINTN" : showOps xs
-showOps (ADD : xs) = "ADD" : showOps xs
 -- showOps (JUMPTRUE : i : xs) = ("True off=" ++ show i) : showOps xs
 -- showOps (JUMPFALSE : i : xs) = ("False off=" ++ show i) : showOps xs
 showOps (x : xs) = show x : showOps xs
@@ -299,21 +315,21 @@ dropUntilNull (c:cs) = case c of
 bccWithStop :: Term -> Bytecode
 bccWithStop t = bcc t ++ [STOP]
 
--- testBC :: Term -> IO ()
--- testBC t = do res <- runFD4 ( bccWithStop t >>= printFD4 . showBC) (Conf False Interactive)
---               case res of (Right r) -> print r
---                           (Left _) -> print "Errorrrrrr"
+testBC :: Term -> IO ()
+testBC t = do res <- runFD4 ( printFD4 $ showBC (bccWithStop t)) (Conf False Interactive)
+              case res of (Right r) -> print r
+                          (Left _) -> print "Errorrrrrr"
 
--- testRun :: Term -> IO ()
--- testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
---                 case resRun of (Right r) -> print r
---                                (Left _)  -> print "Error"
+testRun :: Term -> IO ()
+testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
+                case resRun of (Right r) -> print r
+                               (Left _)  -> print "Error"
 
--- testRun' :: MonadFD4 m => Term -> m ()
--- testRun' t = do bc <- bccWithStop t 
---                 -- printFD4 $ rawBC2string bc
---                 printFD4 "Comienza el run:"
---                 runBC bc
+testRun' :: MonadFD4 m => Term -> m ()
+testRun' t = do let bc = bccWithStop t 
+                -- printFD4 $ rawBC2string bc
+                printFD4 "Comienza el run:"
+                runBC bc
 
 printState :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
 printState c e s = do 

@@ -95,6 +95,7 @@ instance (Show info, Show var) => Show (Scope2 info var) where
 
 -- Instancias para abreviar cuando depuramos
 instance Num Literal where
+  fromInteger :: Integer -> Literal
   fromInteger = N . fromInteger
 
 instance (Default a) => Num (Tm a b) where
@@ -138,7 +139,9 @@ getTerm (IfZ i c t f) = IfZ (fst i) (getTerm c) (getTerm t) (getTerm f)
 getTerm (Let i nm ty t s) = Let (fst i) nm ty (getTerm t) (ts2s s)
 getTerm (BOp i op t1 t2) = BOp (fst i) op (getTerm t1) (getTerm t2)
 
+ts2s :: Scope (Pos, Ty) Var -> Scope Pos Var
 ts2s (Sc1 t) = Sc1 (getTerm t)
+ts22s :: Scope2 (Pos, Ty) Var -> Scope2 Pos Var
 ts22s (Sc2 t) = Sc2 (getTerm t)
 
 getTy :: TTerm -> Ty

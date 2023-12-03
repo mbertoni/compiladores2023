@@ -189,8 +189,8 @@ handleDeclaration d = do
       Left e@(C.Decl p x tm) -> returnUnit debugging e CEK.eval
       Right e@(C.Decl p x ty) -> addTypeDecl e
     -- Bytecompile -> case elaborated of
-    --   Left (C.Decl p x tm) -> do
-    --   Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
+    --   Left e@(C.Decl p x tm) -> returnUnit debugging e bcc
+    --   Right e@(C.Decl p x ty) -> addTypeDecl e
     Interactive -> case elaborated of
       Left e@(C.Decl p x tm) -> returnUnit debugging e eval
       Right e@(C.Decl p x ty) -> addTypeDecl e

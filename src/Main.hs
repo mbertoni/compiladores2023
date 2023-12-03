@@ -38,6 +38,7 @@ import System.IO (hPrint, hPutStrLn, stderr)
 import TypeChecker (tc, tcDecl)
 import qualified Control.Monad as Control.Monad.ExceptT
 import ByteCompile
+import System.FilePath (dropExtension)
 -- import ByteCompile
 -- import Optimizer
 
@@ -48,27 +49,11 @@ prompt = "FD4> "
 parseMode :: Parser (Mode, Bool)
 parseMode =
   (,)
-    <$> ( flag'
-            Typecheck
-            ( long "typecheck"
-                <> short 't'
-                <> help "Chequear tipos e imprimir el término"
-            )
-            <|> flag'
-              InteractiveCEK
-              ( long "icek"
-                  <> short 'k'
-                  <> help "Ejecutar de forma interactiva en la CEK"
-              )
+    <$> ( flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
+            <|> flag' InteractiveCEK ( long "icek" <> short 'k' <> help "Ejecutar de forma interactiva en la CEK")
             <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
             <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
-            <|> flag
-              Interactive
-              Interactive
-              ( long "interactive"
-                  <> short 'i'
-                  <> help "Ejecutar en forma interactiva"
-              )
+            <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
             <|> flag Eval Eval (long "eval" <> short 'e' <> help "Evaluar un programa")
             <|> flag CEK CEK (long "cek" <> short 'k' <> help "Evaluar un programa con la CEK")
         )
@@ -103,7 +88,7 @@ main = execParser opts >>= go
     go (Interactive, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     -- go (InteractiveCEK, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
-    go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
+    -- go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
     -- go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
     go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
@@ -113,7 +98,10 @@ bytecompile f = do
     mapM_ handleDeclaration decls
     gdecl <- gets termEnvironment
     let bc = byteCompileModule gdecl
-    liftIO $ bcWrite bc f
+    let newFile = dropExtension f
+    printFD4 ("newFile: " ++ show newFile)
+    printFD4 ("decls: " ++ show gdecl)
+    liftIO $ bcWrite bc newFile
 
 runVM :: MonadFD4 m => FilePath -> m ()
 runVM f = do

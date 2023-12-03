@@ -207,7 +207,7 @@ bc2string :: Bytecode -> String
 bc2string = map chr
 
 byteCompileModule :: Module -> Bytecode
-byteCompileModule m = bcc (getTerm $ declIntoTerm m)
+byteCompileModule m = bcc (getTerm $ declIntoTerm m) ++ [STOP]
   
 {- 
   let x = t1

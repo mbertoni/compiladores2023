@@ -1,0 +1,15 @@
+
+Before Elabing: LetDecl P (x,__Nat__) NoRec [] Pnt "X = " Lit 246
+
+Environment: []
+
+Raw: Pnt _ (S {unS = "X = "}) (Lit _ (N {unN = 246}))
+
+TypeChecked: Decl {pos = _, name = "x", body = Pnt (_,Nat) (S {unS = "X = "}) (Lit (_,Nat) (N {unN = 246}))}
+
+Evaling: 
+X = 246
+
+After Evaling: Lit (_,Nat) (N {unN = 246})
+
+Environment: []

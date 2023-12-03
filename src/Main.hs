@@ -36,6 +36,9 @@ import System.Console.Haskeline
 import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPrint, hPutStrLn, stderr)
 import TypeChecker (tc, tcDecl)
+import qualified Control.Monad as Control.Monad.ExceptT
+import ByteCompile
+import System.FilePath (dropExtension)
 -- import ByteCompile
 -- import Optimizer
 
@@ -46,28 +49,13 @@ prompt = "FD4> "
 parseMode :: Parser (Mode, Bool)
 parseMode =
   (,)
-    <$> ( flag'
-            Typecheck
-            ( long "typecheck"
-                <> short 't'
-                <> help "Chequear tipos e imprimir el término"
-            )
-            <|> flag'
-              InteractiveCEK
-              ( long "interactiveCEK"
-                  <> short 'k'
-                  <> help "Ejecutar de forma interactiva en la CEK"
-              )
-            <|> flag' ByteCompile (long "byteCompile" <> short 'm' <> help "Compilar a la Macchina")
-            -- <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
-            <|> flag
-              Interactive
-              Interactive
-              ( long "interactive"
-                  <> short 'i'
-                  <> help "Ejecutar en forma interactiva"
-              )
+    <$> ( flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
+            <|> flag' InteractiveCEK ( long "icek" <> short 'k' <> help "Ejecutar de forma interactiva en la CEK")
+            <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
+            <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
+            <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
             <|> flag Eval Eval (long "eval" <> short 'e' <> help "Evaluar un programa")
+            <|> flag CEK CEK (long "cek" <> short 'k' <> help "Evaluar un programa con la CEK")
         )
     -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")  <- sería acá lo que hay que descomentar?
     -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonización")
@@ -98,10 +86,28 @@ main = execParser opts >>= go
 
     go :: (Mode, Bool, [FilePath]) -> IO ()
     go (Interactive, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
+    -- go (InteractiveCEK, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
+    go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
     -- go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
     -- go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
-    -- go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
     go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
+
+bytecompile :: MonadFD4 m => FilePath -> m ()
+bytecompile f = do
+    decls <- loadFile f
+    mapM_ handleDeclaration decls
+    gdecl <- gets termEnvironment
+    let bc = byteCompileModule gdecl
+    let newFile = dropExtension f
+    printFD4 ("newFile: " ++ show newFile)
+    printFD4 ("decls: " ++ show gdecl)
+    liftIO $ bcWrite bc newFile
+
+runVM :: MonadFD4 m => FilePath -> m ()
+runVM f = do
+  bc <- liftIO $ bcRead f
+  runBC bc
+
 
 runOrFail :: Conf -> FD4 a -> IO a
 runOrFail c m = do
@@ -172,52 +178,53 @@ evalDecl (C.Decl p x e) = do
 handleDeclaration :: (MonadFD4 m) => S.Declaration -> m ()
 handleDeclaration d = do
   gamma <- gets globalTypeContext
-  m <- getMode
+  let elaborated = Elab.declaration gamma d
+  let debugging = False
   case m of
-    InteractiveCEK -> case Elab.declaration gamma d of -- TODO Es un compilador mono-comando, como la canilla!!!
-      Left (C.Decl p x tm) -> do
-        tt <- tcDecl (C.Decl p x tm)
-        te <- CEK.eval (C.body tt)
-        addTermDecl (C.Decl p x te)
-      Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
-    Interactive -> case Elab.declaration gamma d of
-      Left (C.Decl p x tm) -> do
-        printFD4 ("\nBefore Elabing: " ++ show d)
-        printFD4 ("\nEnvironment: " ++ show gamma)
-        printFD4 ("\nRaw: " ++ show tm)
-        tt <- tcDecl (C.Decl p x tm)
-        printFD4 ("\nTypeChecked: " ++ show tt)
-        printFD4 ("\nEvaling: ")
-        te <- eval (C.body tt)
-        printFD4 ("\nAfter Evaling: " ++ show te)
-        addTermDecl (C.Decl p x te)
-      Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
+    Eval -> case elaborated of
+      Left e@(C.Decl p x tm) -> returnUnit debugging e eval
+      Right e@(C.Decl p x ty) -> addTypeDecl e
+    CEK -> case elaborated of
+      Left e@(C.Decl p x tm) -> returnUnit debugging e CEK.eval
+      Right e@(C.Decl p x ty) -> addTypeDecl e
+    -- Bytecompile -> case elaborated of
+    --   Left e@(C.Decl p x tm) -> returnUnit debugging e bcc
+    --   Right e@(C.Decl p x ty) -> addTypeDecl e
+    Interactive -> case elaborated of
+      Left e@(C.Decl p x tm) -> returnUnit debugging e eval
+      Right e@(C.Decl p x ty) -> addTypeDecl e
     Typecheck -> do
       f <- getLastFile
-      printFD4 ("Chequeando tipos de " ++ f)
-      case Elab.declaration gamma d of
+      Control.Monad.ExceptT.when debugging $ printFD4 ("Chequeando tipos de " ++ f)
+      case elaborated of
         Left (C.Decl p x tm) -> do
+          Control.Monad.ExceptT.when debugging $ printFD4 ("\nTypechecking")
           tt <- tcDecl (C.Decl p x tm)
           addTermDecl tt
           printFD4 =<< ppTermDecl tt
         Right (C.Decl p x ty) -> do
           addTypeDecl (C.Decl p x ty)
-          printFD4 =<< ppTypeDecl (C.Decl p x ty)
-    -- opt <- getOpt
-    -- td' <- if opt then optimize td else td
-    Eval -> case Elab.declaration gamma d of
-      Left (C.Decl p x tm) -> do
-        tt <- tcDecl (C.Decl p x tm)
-        te <- eval (C.body tt)
-        addTermDecl (C.Decl p x te)
-      Right (C.Decl p x ty) -> addTypeDecl (C.Decl p x ty)
-    ByteCompile -> return ()
+          ppty <- ppTypeDecl (C.Decl p x ty)
+          printFD4 ppty
+    _ -> return ()
 
--- do
--- td <- typecheckDecl d
--- -- td' <- if opt then optimizeDecl td else return td
--- ed <- evalDecl td
--- addDecl ed
+evalAndAdd :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m (C.Decl C.TTerm)
+evalAndAdd debugging d@(C.Decl p x tm) f =  do
+          Control.Monad.ExceptT.when debugging $ printFD4 ("\nBefore Elabing: " ++ show d)
+          Control.Monad.ExceptT.when debugging $ printFD4 ("\nRaw: " ++ show tm)
+          tt <- tcDecl d
+          Control.Monad.ExceptT.when debugging $ printFD4 ("\nTypeChecked: " ++ show tt)
+          Control.Monad.ExceptT.when debugging $ printFD4 "\nEvaling: "
+          te <- f (C.body tt)
+          -- opt <- getOpt
+          -- td' <- if opt then optimize td else td
+          Control.Monad.ExceptT.when debugging $ printFD4 ("\nAfter Evaling: " ++ show te)
+          addTermDecl (C.Decl p x te)
+          return $ C.Decl p x te
+returnUnit :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m ()
+returnUnit debugging d f = do evalAndAdd debugging d f
+                              return ()
+
 data Command
   = Compile CompileForm
   | PPrint String

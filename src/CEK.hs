@@ -6,20 +6,31 @@ import Data.Default (def)
 import Eval (semOp)
 import MonadFD4
 import Global
+import Subst
 
 data Value
   = VNat Int
-  | CFun Name TTerm Env
-  | CFix Name Name TTerm Env
-  deriving (Show)
+  | CFun (Pos,Ty) Name Ty TTerm Env
+  | CFix (Pos,Ty) Name Ty Name Ty TTerm Env
+
+instance Show Value where
+  show (VNat n) = show n
+  show x@CFun{} = "Fun: "++ show x
+  show x@CFix{} = "Fix: "++ show x
 
 lit2Value :: Literal -> Value
 lit2Value (N i) = VNat i
 lit2Value (S s) = abort "not implemented"
+lit2Value (U _) = abort "not implemented"
 
 val2TTerm :: Value -> TTerm
 val2TTerm (VNat i) = Lit (def, Nat) (N i)
-val2TTerm _ = abort "immediate value expected"
+val2TTerm (CFun i x xty tterm e) = substAll termEnv $ Lam i x xty (Sc1 tterm)                          
+                                where termEnv = map val2TTerm e  
+val2TTerm (CFix i fn fty xn xty tterm e) =  substAll termEnv $ Fix i fn fty xn xty (Sc2 tterm)
+                                where termEnv = map val2TTerm e  
+
+
 
 type Env = [Value]
 
@@ -36,15 +47,13 @@ data Frame
   deriving (Show)
 
 seek :: (MonadFD4 m) => TTerm -> Env -> Continuation -> m Value
-seek term env k = do  
-                      printSeekStatus term env k 
-                      case term of
+seek term env k =   case term of
                         Pnt _ s t -> seek t env (PntT s : k)
                         BOp _ op t u -> seek t env (BOpL op u env : k)
                         IfZ _ c t e -> seek c env (IfZC t e env : k)
                         App _ t u -> seek t env (AppL u env : k)
-                        Lam _ nm _ (Sc1 t) -> destroy (CFun nm t env) k
-                        Fix _ f _ x _ (Sc2 t) -> destroy (CFix f x t env) k
+                        Lam i x xty (Sc1 t) -> destroy (CFun i x xty t env) k
+                        Fix i f fty x xty (Sc2 t) -> destroy (CFix i f fty x xty t env) k
                         Lit _ l -> destroy (lit2Value l) k
                         Let _ n _ t' (Sc1 t) -> seek t' env (LetD n t env : k)
                         Var _ (Bound b) -> destroy (env !! b) k
@@ -59,38 +68,29 @@ seek term env k = do
 
 destroy :: (MonadFD4 m) => Value -> Continuation -> m Value
 destroy v [] = return v
-destroy v (fr : k) = do 
-                        printDestroyStatus v (fr:k) 
-                        case fr of
-                          PntT lit -> printFD4 (unS lit ++ show v) >> destroy v k
+destroy v (fr : k) =  case fr of
+                          PntT lit@(S st) -> do printFD4 $ st++show v
+                                                destroy v k
+                          PntT _          -> destroy v k
                           BOpL op term env -> seek term env (BOpR op v : k)
                           BOpR op value -> case (value, v) of
                             (VNat l, VNat r) -> destroy (VNat $ semOp op l r) k
-                            _ -> abort "error de tipos runtime"
+                            _ -> abort "error de tipos runtime en BOpR"
                           IfZC t e env -> case v of
                             VNat 0 -> seek t env k
                             VNat _ -> seek e env k
-                            _ -> abort "error de tipos runtime"
+                            val -> abort "error de tipos runtime en IfZC"
                           AppL t env -> seek t env (AppR v : k)
                           AppR clos -> case clos of
-                            CFun _ t env -> seek t (v : env) k
-                            CFix _ _ t env -> seek t (clos : v : env) k
-                            _ -> abort "error de tipos runtime"
+                            CFun _ _ _ t env -> seek t (v : env) k
+                            CFix _ _ _ _ _ t env -> seek t (v:clos:env) k
+                            _ -> abort "error de tipos runtime en AppR"
                           LetD _ t env -> seek t (v : env) k -- olvido tu nombre?
 
 eval :: (MonadFD4 m) => TTerm -> m TTerm
--- Ayer escribimos esto
--- eval t = do
---   v <- seek t [] []
---   return (val2TTerm v)
-
--- Hoy se me ocurre esto
--- eval t = fmap val2TTerm $ seek t [] []
-
--- el linter me dice que haga esto
-eval t = val2TTerm <$> seek t [] []
-
-
+eval t = do v <- seek t [] []
+            return $ val2TTerm v
+            
 testRun :: TTerm -> IO ()
 testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
                 case resRun of (Right r) -> print r

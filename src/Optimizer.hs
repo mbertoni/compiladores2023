@@ -1,7 +1,6 @@
 module Optimizer where
 
 import Core
-import MonadFD4
 import Subst
 
 

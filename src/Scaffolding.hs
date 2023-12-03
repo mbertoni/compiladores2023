@@ -10,20 +10,19 @@ module Scaffolding where
 -}
 
 import Parse
-import MonadFD4
-import Global
+-- import MonadFD4
+-- import Global
 import Text.Parsec
 import Common
 import Core
 import ByteCompile
-import Errors
-import qualified Main
+-- import Errors
 -- |
-bcc' :: (MonadFD4 m) => Tm _ _ -> m Bytecode
-bcc' = abort "usar la de ByteCompile"
+bcc :: Term -> Bytecode
+bcc = abort "usar la de ByteCompile"
 
-test_bcc :: Tm _ _ -> IO (Either Errors.Error ())
-test_bcc tt = runFD4 (bcc' tt >>= printFD4 . showBC) $ Conf False Interactive
+-- test_bcc :: TTerm -> IO (Either Errors.Error ())
+-- test_bcc tt = runFD4 (printFD4 $ showBC (bcc tt)) $ Conf False Interactive
 
 -- |
 test_parser :: (Show a) => P a -> String -> IO ()

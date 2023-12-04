@@ -150,6 +150,16 @@ getTy = snd . getInfo
 getPos :: TTerm -> Pos
 getPos = fst . getInfo
 
+-- visit :: (TTerm -> TTerm) -> TTerm -> TTerm
+visit g v@(Var _ _) = g v
+visit g l@(Lit _ _) = g l
+visit g (Lam i n ty (Sc1 t)) = Lam i n ty (Sc1 (visit g t))
+visit g (App i t1 t2) = App i (visit g t1) (visit g t2)
+visit g (Pnt i l t) = Pnt i l (visit g t)
+visit g (BOp i op t1 t2) = BOp i op (visit g t1) (visit g t2)
+visit g (Fix i f fty x xty (Sc2 t)) = Fix i f fty x xty (Sc2 (visit g t))
+visit g (IfZ i c t e) = IfZ i (visit g c) (visit g t) (visit g e)
+visit g (Let i x xty alias (Sc1 body)) = Let i x xty (visit g alias) (Sc1 (visit g body))
 
 -- | map para la info de un término
 mapInfo :: (a -> b) -> Tm a var -> Tm b var

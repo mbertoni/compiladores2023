@@ -142,7 +142,11 @@ showBC = intercalate "; " . showOps
 
 bcc ::  Term -> Bytecode
 bcc (Var info (Bound i)) = ACCESS:[i] 
+bcc (Var _ (Free _)) = abort "BCC: Llegó una free"
+bcc (Var _ (Global n)) = abort "BCC: Llegó una global"
 bcc (Lit _ (N n)) = CONST:[n] 
+bcc (Lit _ (S s)) = abort "BCC: Llegó string" 
+bcc (Lit _ (U u)) = abort "BCC: Llegó unit" 
 bcc (Lam _ _ _ (Sc1 t)) = FUNCTION:length bct:bct 
   where bct = bcTC t  
 bcc (App _ t1 t2) = bct1 ++ bct2 ++ [CALL]
@@ -150,6 +154,8 @@ bcc (App _ t1 t2) = bct1 ++ bct2 ++ [CALL]
     bct1 = bcc t1
     bct2 = bcc t2
 bcc (Pnt _ (S s) t) = bcc t ++ [PRINT] ++ string2bc s ++ [NULL] ++ [PRINTN]
+bcc (Pnt _ (N n) t) = abort "BCC: Se quiso imprimir un número"
+bcc (Pnt _ (U u) t) = abort "BCC: Se quiso imprimir unit" 
 bcc (BOp _ Add x y) = bcx ++ bcy ++ [ADD]
   where bcx = bcc x
         bcy = bcc y
@@ -179,7 +185,7 @@ bcc (Let _ x _ e1 (Sc1 e2)) = bce1 ++ [SHIFT] ++ bce2 ++ [DROP]
     bce1 = bcc e1
     bce2 = bcc e2
                               
-bcc _ = abort "Patrón no capturado en bcc"
+-- bcc _ = abort "Patrón no capturado en bcc"
 
 bcTC :: Term -> Bytecode
 bcTC x@(App _ t1 t2) = bct1 ++ bct2 ++ [TAILCALL]
@@ -218,12 +224,17 @@ byteCompileModule m = bcc (getTerm $ declIntoTerm m) ++ [STOP]
 -} 
 declIntoTerm :: Module -> TTerm
 declIntoTerm [] = abort "Módulo vacío"
-declIntoTerm [dtt] = dtt.body
+declIntoTerm [dtt] = global2free ddt.name dtt.body
 declIntoTerm (dtt:dtts) = Let i dtt.name ty dtt.body (close dtt.name rest)
           where 
             rest = declIntoTerm dtts
             i = getInfo dtt.body
             ty = getTy dtt.body
+
+global2free :: Name -> TTerm -> TTerm
+global2free n t = visit (replaceGlobal n) t
+
+replaceGlobal n (Var i (Global x)) = 
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()

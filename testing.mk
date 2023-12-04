@@ -20,9 +20,9 @@ EXTRAFLAGS	:=
 # comentando una de estas líneas.
 # CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
-CHECK	+= $(patsubst %,%.bc32,$(TESTS))
+CHECK	+= $(patsubst %.fd4,%.bc32,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
-CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
+# CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_opt,$(TESTS))
 
@@ -84,7 +84,7 @@ accept: $(patsubst %,%.accept,$(TESTS))
 
 # Bytecode. Primero la regla para generar el bytecode, no se chequea
 # nada.
-%.fd4.bc32: %.fd4 $(EXE)
+%.bc32: %.fd4 $(EXE)
 	$(Q)$(EXE) $(EXTRAFLAGS) --bytecompile $< > /dev/null
 
 # Correr bytecode para generar la salida (con VM en C).

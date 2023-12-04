@@ -9,8 +9,8 @@ module Main where
 
 -- import Control.Monad
 
-import qualified CEK 
--- import Common 
+import qualified CEK
+-- import Common
 import Control.Exception (IOException, catch)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.Trans
@@ -92,12 +92,12 @@ main = execParser opts >>= go
     go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
 bytecompile :: MonadFD4 m => FilePath -> m ()
-bytecompile f = do 
+bytecompile f = do
     decls <- loadFile f
     mapM_ handleDeclaration decls
     gdecl <- gets termEnvironment
     let bc = byteCompileModule gdecl
-    let newFile = f ++ ".bc32"
+    let newFile = dropExtension f ++ ".bc32"
     liftIO $ bcWrite bc newFile
 
 runVM :: MonadFD4 m => FilePath -> m ()
@@ -182,7 +182,7 @@ handleDeclaration d = do
     Eval -> case elaborated of
       Left e@(C.Decl p x tm) -> returnUnit debugging e eval
       Right e@(C.Decl p x ty) -> addTypeDecl e
-    CEK -> case elaborated of 
+    CEK -> case elaborated of
       Left e@(C.Decl p x tm) -> returnUnit debugging e CEK.eval
       Right e@(C.Decl p x ty) -> addTypeDecl e
     Bytecompile -> case elaborated of

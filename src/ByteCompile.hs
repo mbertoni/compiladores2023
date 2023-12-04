@@ -11,7 +11,7 @@
 --
 -- Este módulo permite compilar módulos a la Macchina. También provee
 -- una implementación de la Macchina para ejecutar el bytecode.
-module ByteCompile (Bytecode, runBC, bcWrite, bcRead, byteCompileModule, showBC) where
+module ByteCompile (Bytecode, runBC, bcWrite, bcRead, byteCompileModule, showBC, bcc) where
 
 import Data.Binary (Binary (get, put), Word32, decode, encode)
 import Data.Binary.Get (getWord32le, isEmpty)

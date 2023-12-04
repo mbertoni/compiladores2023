@@ -39,7 +39,6 @@ import TypeChecker (tc, tcDecl)
 import qualified Control.Monad as Control.Monad.ExceptT
 import ByteCompile
 import System.FilePath (dropExtension)
--- import ByteCompile
 -- import Optimizer
 
 prompt :: String
@@ -88,7 +87,7 @@ main = execParser opts >>= go
     go (Interactive, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     -- go (InteractiveCEK, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
-    -- go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
+    go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
     -- go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
     go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
@@ -98,9 +97,7 @@ bytecompile f = do
     mapM_ handleDeclaration decls
     gdecl <- gets termEnvironment
     let bc = byteCompileModule gdecl
-    let newFile = dropExtension f
-    printFD4 ("newFile: " ++ show newFile)
-    printFD4 ("decls: " ++ show gdecl)
+    let newFile = f ++ ".bc32"
     liftIO $ bcWrite bc newFile
 
 runVM :: MonadFD4 m => FilePath -> m ()
@@ -188,9 +185,10 @@ handleDeclaration d = do
     CEK -> case elaborated of 
       Left e@(C.Decl p x tm) -> returnUnit debugging e CEK.eval
       Right e@(C.Decl p x ty) -> addTypeDecl e
-    -- Bytecompile -> case elaborated of
-    --   Left e@(C.Decl p x tm) -> returnUnit debugging e bcc
-    --   Right e@(C.Decl p x ty) -> addTypeDecl e
+    Bytecompile -> case elaborated of
+      Left e@(C.Decl p x tm) -> do  tt <- tcDecl (C.Decl p x tm)
+                                    addTermDecl tt
+      Right e@(C.Decl p x ty) -> addTypeDecl e
     Interactive -> case elaborated of
       Left e@(C.Decl p x tm) -> returnUnit debugging e eval
       Right e@(C.Decl p x ty) -> addTypeDecl e
@@ -218,9 +216,10 @@ evalAndAdd debugging d@(C.Decl p x tm) f =  do
           Control.Monad.ExceptT.when debugging $ printFD4 ("\nTypeChecked: " ++ show tt)
           Control.Monad.ExceptT.when debugging $ printFD4 "\nEvaling: "
           te <- f (C.body tt)
+          Control.Monad.ExceptT.when debugging $ printFD4 ("\nAfter Evaling: " ++ show te)
           -- opt <- getOpt
           -- td' <- if opt then optimize td else td
-          Control.Monad.ExceptT.when debugging $ printFD4 ("\nAfter Evaling: " ++ show te)
+          -- Control.Monad.ExceptT.when debugging $ printFD4 ("\nAfter Optimizing: " ++ show te)
           addTermDecl (C.Decl p x te)
           return $ C.Decl p x te
 returnUnit :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m ()

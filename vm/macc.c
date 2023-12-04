@@ -40,13 +40,13 @@ enum {
 	TAILCALL = 16,
 };
 
-#define quit(...)						\
-	do {								\
-		fprintf(stderr, __VA_ARGS__);	\
-		fprintf(stderr, "\n");			\
-		if (errno)						\
+#define quit(...)										\
+	do {												\
+		fprintf(stderr, __VA_ARGS__);					\
+		fprintf(stderr, "\n");							\
+		if (errno)										\
 			fprintf(stderr, "errno = %d\n", errno);		\
-		exit(EXIT_FAILURE);				\
+		exit(EXIT_FAILURE);								\
 	} while (0)
 
 /*

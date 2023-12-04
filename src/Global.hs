@@ -30,10 +30,10 @@ data GlEnv = GlEnv
   }
 
 globalTypedEnvironment :: GlEnv -> [(Name, Ty)]
-globalTypedEnvironment g = map (\(Decl _ n tt) -> (n, getTy tt)) (termEnvironment g)
+globalTypedEnvironment g = map (\(Decl _ n tt) -> (n, getTy tt)) g.termEnvironment
 
 globalTypeContext :: GlEnv -> [(Name, Ty)]
-globalTypeContext g = map (\(Decl _ n ty) -> (n, ty)) (typeContext g)
+globalTypeContext g = map (\(Decl _ n ty) -> (n, ty)) g.typeContext
 
 {-
  Tipo para representar las banderas disponibles en línea de comando.

@@ -32,9 +32,9 @@ constantFolding = visit go
                 Lit _ (N _) -> go e
                 term -> IfZ i c' t' e
                 where
-                    c' = visit go c -- no estoy seguro si es visit go o solamente go
-                    t' = visit go t
-                    e' = visit go e
+                    c' = constantFolding c -- no estoy seguro si es visit go o solamente go
+                    t' = constantFolding t
+                    e' = constantFolding e
             go (BOp i op t1 t2) =  case t2' of 
                 -- Tendríamos que ver el print acá, ¿no?
                     -- Si t2 es 0, retorno t1
@@ -43,8 +43,8 @@ constantFolding = visit go
                                             case op of  Add -> t2'
                                                         Sub -> Lit i (N 0)
                                         _ -> BOp i op t1' t2' 
-                    where   t1' = visit go t1
-                            t2' = visit go t2
+                    where   t1' = constantFolding t1
+                            t2' = constantFolding t2
             go term = visit go term    
 
 constantPropagation :: TTerm -> TTerm

@@ -1,8 +1,8 @@
 *.hi
 *.o
-**/*.bc32
 dist-newstyle/*
 .vscode/*
 Teoría/*
 .history
 .DS_Store
+*.bc32

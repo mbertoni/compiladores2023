@@ -1,5 +1,6 @@
 *.hi
 *.o
+**/*.bc32
 dist-newstyle/*
 .vscode/*
 Teoría/*

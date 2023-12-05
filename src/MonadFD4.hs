@@ -18,6 +18,7 @@ module MonadFD4
     lookupDecl,
     lookupTypeOfGlobal,
     printFD4,
+    printFD4NoNewLine,
     setLastFile,
     getLastFile,
     setInter,
@@ -81,6 +82,9 @@ getInter = gets inInteractiveMode
 
 printFD4 :: (MonadFD4 m) => String -> m ()
 printFD4 = liftIO . putStrLn
+
+printFD4NoNewLine :: (MonadFD4 m) => String -> m ()
+printFD4NoNewLine = liftIO . putStr
 
 setLastFile :: (MonadFD4 m) => FilePath -> m ()
 setLastFile filename = modify (\s -> s {lastFile = filename, termDeclNumber = 0, typeDeclNumber = 0})

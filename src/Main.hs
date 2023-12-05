@@ -20,7 +20,7 @@ import Data.List (intercalate, isPrefixOf, nub)
 import Data.Maybe (fromMaybe)
 import Elab (declaration, term, ident)
 import Errors
-import Common
+import Common ()
 import Eval (eval)
 import Global
 import MonadFD4

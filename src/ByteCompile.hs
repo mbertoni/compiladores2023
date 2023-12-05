@@ -24,6 +24,7 @@ import MonadFD4
 import Subst
 import Common (abort)
 import Global ( Conf(Conf), Mode(Interactive) ) 
+import qualified Control.Monad as Control.Monad.ExceptT
 type Opcode = Int
 
 type Bytecode = [Int]
@@ -147,8 +148,11 @@ bcc (Var _ (Global n)) = abort "BCC: Llegó una global"
 bcc (Lit _ (N n)) = CONST:[n] 
 bcc (Lit _ (S s)) = abort "BCC: Llegó string" 
 bcc (Lit _ (U u)) = abort "BCC: Llegó unit" 
-bcc (Lam _ _ _ (Sc1 t)) = FUNCTION:length bct:bct 
-  where bct = bcTC t  
+bcc (Lam _ _ _ (Sc1 t)) = FUNCTION:length bct:bct -- ++ [RETURN] 
+  where 
+    -- bct = bcc t  
+    -- Anda con: FUNCTION:length bct + 1:bct ++ [RETURN]
+    bct = bcTC t  
 bcc (App _ t1 t2) = bct1 ++ bct2 ++ [CALL]
   where
     bct1 = bcc t1
@@ -161,7 +165,7 @@ bcc (BOp _ Add x y) = bcx ++ bcy ++ [ADD]
         bcy = bcc y
   
 bcc (BOp _ Sub x y) = bcc x ++ bcc y ++ [SUB]
-bcc (Fix _ fn fty x xty (Sc2 t)) = FUNCTION:[length bct] ++ bct ++ [RETURN, FIX]
+bcc (Fix _ fn fty x xty (Sc2 t)) = FUNCTION:[length bct + 1] ++ bct ++ [RETURN, FIX]
   where bct = bcc t  
 bcc (IfZ _ c t e) = bccond ++ (JUMP: length bcthen: bcthen) ++ (JUMP: length bcelse: bcelse) 
   where
@@ -273,7 +277,7 @@ run ck@(PRINTN:c) e ss@(Natural n:s) = do   printState ck e ss
                                             printFD4 (show n) 
                                             run c e (Natural n:s)
 run ck@(PRINT:c) e s = do printState ck e s
-                          printFD4 (show strToPrint) 
+                          printFD4NoNewLine strToPrint
                           run cDropped e s
   where strToPrint = bc2string (takeUntilNull c)  -- takeUntilNull == takeWhile  (/= NULL) ??
         cDropped = dropUntilNull c                -- dropUntilNull == dropWhile  (/= NULL) ??
@@ -309,7 +313,12 @@ run ck@[STOP] e s = do  printState ck e s
                         -- printFD4 $ "Finnnn: " ++ showVal s
                         return ()
 run (STOP:xs) e s = failFD4 "Tengo un STOP y más instrucciones"
-run _ _ _ = failFD4 "Error en el ByteCode"
+run [] e s = failFD4 "No tengo más instrucciones"
+run (ACCESS:xs) e s = failFD4 "Llegó un Access"
+run (CONST:xs) e s = failFD4 "Llegó un Const"
+run b e s = failFD4 $ "ERROR en \nBC: " ++ showBC b ++ 
+                      "\nEnv " ++ showVal e ++ 
+                      "\nStack " ++ showVal s
 
 takeUntilNull :: Bytecode -> Bytecode
 takeUntilNull [] = []
@@ -344,9 +353,9 @@ testRun' t = do let bc = bccWithStop t
 
 printState :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
 printState c e s = do 
-          -- printFD4 $ rawBC2string c
-          -- printFD4 $ intercalate " - " [showBC c, showVal e, showVal s]
-          return ()
+          let debugging = False
+          Control.Monad.ExceptT.when debugging $ printFD4 ( rawBC2string c )
+          Control.Monad.ExceptT.when debugging $ printFD4 ( intercalate " - " [showBC c, showVal e, showVal s] )
                       
 rawBC2string :: Bytecode -> String
 rawBC2string [] = ""
@@ -354,7 +363,7 @@ rawBC2string (x:xs) = show x ++ " " ++ rawBC2string xs
 
 showVal :: [Value] -> String
 showVal (Natural n :env) = "Nat "++ show n ++ "; " ++ showVal env
-showVal (Fun e bc  :env) = "Fun "++ showVal e ++ showBC bc ++ ": " ++ showVal env
-showVal (RetAd e bc:env) = "Ret "++ showVal e ++ showBC bc ++ ": " ++ showVal env
+showVal (Fun e bc  :env) = "Fun {"++ showVal e ++ showBC bc ++ "}: " ++ showVal env 
+showVal (RetAd e bc:env) = "Ret {{"++ showVal e ++ showBC bc ++ "}}: " ++ showVal env
 showVal [] = ""
 

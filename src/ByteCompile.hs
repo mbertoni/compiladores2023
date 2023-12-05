@@ -11,7 +11,7 @@
 --
 -- Este módulo permite compilar módulos a la Macchina. También provee
 -- una implementación de la Macchina para ejecutar el bytecode.
-module ByteCompile (Bytecode, runBC, bcWrite, bcRead, byteCompileModule, showBC, bcc) where
+module ByteCompile (Bytecode, runBC, bcWrite, bcRead, byteCompileModule, showBC, global2free) where
 
 import Data.Binary (Binary (get, put), Word32, decode, encode)
 import Data.Binary.Get (getWord32le, isEmpty)
@@ -213,28 +213,28 @@ bc2string :: Bytecode -> String
 bc2string = map chr
 
 byteCompileModule :: Module -> Bytecode
-byteCompileModule m = bcc (getTerm $ declIntoTerm m) ++ [STOP]
+byteCompileModule m = bccWithStop (getTerm $ moduleIntoTerm m)
   
 {- 
   let x = t1
-  let y = t2
+  let y = t2 } => let x = t1 in (let y = t2 in t3 )
   let z = t3 
-  =>
-  let x = t1 in (let y = t2 in t3 )
 -} 
-declIntoTerm :: Module -> TTerm
-declIntoTerm [] = abort "Módulo vacío"
-declIntoTerm [dtt] = global2free ddt.name dtt.body
-declIntoTerm (dtt:dtts) = Let i dtt.name ty dtt.body (close dtt.name rest)
+moduleIntoTerm :: Module -> TTerm
+moduleIntoTerm [] = abort "Módulo vacío"
+moduleIntoTerm [dtt] = dtt.body
+moduleIntoTerm (dtt:dtts) = Let i dtt.name ty dtt.body rest
           where 
-            rest = declIntoTerm dtts
-            i = getInfo dtt.body
+            rest = close dtt.name $ moduleIntoTerm dtts
             ty = getTy dtt.body
+            i = getInfo dtt.body
 
-global2free :: Name -> TTerm -> TTerm
-global2free n t = visit (replaceGlobal n) t
+global2free :: [Name] -> Decl TTerm -> Decl TTerm
+global2free globals dtt = Decl{pos = dtt.pos, name = dtt.name, body = visit (replaceGlobal globals) dtt.body}
 
-replaceGlobal n (Var i (Global x)) = 
+replaceGlobal :: [Name] -> TTerm -> TTerm
+replaceGlobal ns tt@(Var i (Global x)) = if x `elem` ns then Var i (Free x) else tt 
+replaceGlobal ns tt = tt
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()

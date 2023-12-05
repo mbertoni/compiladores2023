@@ -20,6 +20,7 @@ import Data.List (intercalate, isPrefixOf, nub)
 import Data.Maybe (fromMaybe)
 import Elab (declaration, term, ident)
 import Errors
+import Common
 import Eval (eval)
 import Global
 import MonadFD4
@@ -95,8 +96,12 @@ bytecompile :: MonadFD4 m => FilePath -> m ()
 bytecompile f = do
     decls <- loadFile f
     mapM_ handleDeclaration decls
-    gdecl <- gets termEnvironment
-    let bc = byteCompileModule gdecl
+    gdecls <- reverse <$> gets termEnvironment
+    let gNames = map (\d -> d.name) gdecls
+    let gdeclReplaced = map (global2free gNames) gdecls
+    -- let decled = declIntoTerm gdeclReplaced
+    -- abort $ "Names: " ++ show gNames ++ "\nSinReemplazar: " ++ show gdecls ++ "\nReemplazada: " ++ show gdeclReplaced ++ "\nDecled:" ++ show decled
+    let bc = byteCompileModule gdeclReplaced
     let newFile = dropExtension f ++ ".bc32"
     liftIO $ bcWrite bc newFile
 

@@ -167,9 +167,8 @@ bcc (BOp _ Add x y) = bcx ++ bcy ++ [ADD]
 bcc (BOp _ Sub x y) = bcc x ++ bcc y ++ [SUB]
 bcc (Fix _ fn fty x xty (Sc2 t)) = FUNCTION:[length bct + 1] ++ bct ++ [RETURN, FIX]
   where bct = bcc t  
-bcc (IfZ _ c t e) = bccond ++ (JUMP: length bcthen: bcthen) ++ (JUMP: length bcelse: bcelse) 
+bcc (IfZ _ c t e) = bcc c ++ (JUMP: length bcthen: bcthen) ++ (JUMP: length bcelse: bcelse) 
   where
-    bccond = bcc c
     bcthen = bcc t 
     bcelse = bcc e
  
@@ -192,20 +191,14 @@ bcc (Let _ x _ e1 (Sc1 e2)) = bce1 ++ [SHIFT] ++ bce2 ++ [DROP]
 -- bcc _ = abort "Patrón no capturado en bcc"
 
 bcTC :: Term -> Bytecode
-bcTC x@(App _ t1 t2) = bct1 ++ bct2 ++ [TAILCALL]
-  where
-    bct1 = bcc t1
-    bct2 = bcc t2
+bcTC x@(App _ t1 t2) = bcc t1 ++ bcc t2 ++ [TAILCALL]
   
 bcTC x@(IfZ _ c t e) = bccond ++ (JUMP: length bcTCthen: bcTCthen) ++ (JUMP: length bcTCelse: bcTCelse)
         where
           bccond = bcc c
           bcTCthen = bcTC t 
           bcTCelse = bcTC e
-bcTC x@(Let _ _ _ m (Sc1 n)) = bcm ++ [SHIFT] ++ bcn
-  where 
-    bcm = bcc m
-    bcn = bcTC n
+bcTC x@(Let _ _ _ m (Sc1 n)) = bcc m ++ [SHIFT] ++ bcTC n ++ [DROP]
 bcTC x = bcc x ++ [RETURN]
 
 -- ord/chr devuelven los code-points unicode, o en otras palabras
@@ -303,12 +296,11 @@ run (CJUMP:len:c) e (I n:s) =
               else run (drop (len+2) c) e s 
 run (JUMP:len:c) e s  = run (drop (len+2) c) e s
 -}
-
-
 run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
                                         run c e (Fun ef cf:s)
                                         where ef = Fun ef cf : env 
 run (RETURN:_) _ ss@(v:RetAd e c:s) = run c e (v:s)
+run (TAILCALL:_) env (v:Fun ef cf:s) = run cf (v:ef) s                        
 run ck@[STOP] e s = do  printState ck e s
                         -- printFD4 $ "Finnnn: " ++ showVal s
                         return ()

@@ -110,8 +110,6 @@ pattern JUMP = 15
 
 pattern TAILCALL :: Int
 pattern TAILCALL = 16 
--- pattern JUMPTRUE = 16
--- pattern JUMPFALSE = 17
 
 -- función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]

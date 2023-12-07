@@ -118,6 +118,11 @@ static int env_len(env e)
 	return rc;
 }
 
+value get_i(env e, int i){
+	if (i==0)
+		return e->v;
+	return (get_i(e->next, i-1));
+}
 void run(code init_c)
 {
 	/*
@@ -194,11 +199,9 @@ void run(code init_c)
 		/* Consumimos un opcode y lo inspeccionamos. */
 		switch(*c++) {
 		case ACCESS: {
-			int b = *c++;
-			env ee = e; // para no tocar el environment real
-			while (b--) // busca el binding, caso b=0?
-				ee = ee->next;
-			*s++ = ee->v;
+			int i = *c++;
+			value v = get_i(e,i);
+			(*s++) = v;
 			break;
 		}
 
@@ -273,10 +276,11 @@ void run(code init_c)
 
 		case TAILCALL: {
 			// Sacamos el valor y la clausura del stack 
-			value val = *--s;
-			struct clo closure = (*--s).clo;
-			c = closure.clo_body;
-			e = env_push(closure.clo_env, val);
+			value v = *--s;
+			value f = *--s;
+			e = f.clo.clo_env;
+			e = env_push(e, v);
+			c = f.clo.clo_body;
 			break;
 		}
 
@@ -358,16 +362,24 @@ void run(code init_c)
 		}
 
 		case JUMP: {
-			uint32_t len = *c++;
-			c += len;
+			// 
+			uint32_t lenTrue = *c++;
+			value cond = *s++;
+			if (cond.i == 0)  {
+				code cc = c; // evito manosear el posta
+				// sigo con el cOnlyTrue
+			} else {
+				c += (lenTrue + 2);
+			}
 			break;
 		}
 
 		case CJUMP: {
-			uint32_t len = *c++;
-			// Tengo que saltar si no tengo un 0 en el stack
-			if (!((*s).i))
-				c += len;
+			// No utilizamos CJUMP
+			// uint32_t len = *c++;
+			// // Tengo que saltar si no tengo un 0 en el stack
+			// if (!((*s).i))
+			// 	c += len;
 			break;
 		}
 

@@ -23,7 +23,7 @@ varChanger ::
   (Int -> info -> Int -> Tm info Var) -> -- que hacemos con los indices de De Bruijn
   Tm info Var ->
   Tm info Var
-varChanger local bound term = go 0 term
+varChanger local bound = go 0 
   where
     go n = \case
       Lit p l -> Lit p l

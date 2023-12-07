@@ -23,4 +23,22 @@ tc17 = Pnt d (S "pastito") tc15
 tc18 = Pnt d (S "pastito") tc16
 
 
--- escribir casos de lets de funciones recursivas con más de una variable
+let (orden_de_impresion : Nat) = print "uno! " (print "dos! " 3)
+
+let (f : Nat -> Nat) = fun (x:Nat) ->
+	ifz x
+	then print "uno! " 1
+	else print "dos! " 2
+
+let (test : Nat) =
+	let (a : Nat) = f 0 in
+	let (b : Nat) = f 1 in
+	0
+
+:
+Decled:Let (_,Nat) "orden_de_impresion" Nat (Pnt (_,Nat) (S {unS = "uno! "}) (Pnt (_,Nat) (S {unS = "dos! "}) (Lit (_,Nat) (N {unN = 3})))) |Let (_,Arrow Nat Nat) "f" (Arrow Nat Nat) (Lam (_,Arrow Nat Nat) "x" Nat |IfZ (_,Nat) (Var (_,Nat) (Bound 0)) (Pnt (_,Nat) (S {unS = "uno! "}) (Lit (_,Nat) (N {unN = 1}))) (Pnt (_,Nat) (S {unS = "dos! "}) (Lit (_,Nat) (N {unN = 2})))|) |Let (_,Nat) "a" Nat (App (_,Nat) (Var (_,Arrow Nat Nat) (Bound 0)) (Lit (_,Nat) (N {unN = 0}))) |Let (_,Nat) "b" Nat (App (_,Nat) (Var (_,Arrow Nat Nat) (Bound 1)) (Lit (_,Nat) (N {unN = 1}))) |Lit (_,Nat) (N {unN = 0})||||
+declIntoTerm (dtt:dtts) = Let i dtt.name ty dtt.body (close dtt.name rest)
+          where 
+            rest = declIntoTerm dtts
+            i = getInfo dtt.body
+            ty = getTy dtt.body

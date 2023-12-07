@@ -292,14 +292,9 @@ run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) =
             cCommon   = drop (head cDropped +1) cDropped
             cOnlyTrue = take lenTrue c ++ cCommon
 -}
+run (JUMP:len:c)  e            s  = run (drop len c) e s
 run (CJUMP:len:c) e (Natural n:s) = if n == 0 then run c e s 
                                               else run (drop (len+2) c) e s 
-run (JUMP:len:c) e s  = run (drop len c) e s
-{-
-Otra opción para el JUMP, usando CJUMP 
-(es decir, dos JUMPS en vez de uno)
-Si es necesario usar esta, deberíamos ver si es len+1 , len+2 y probarlo bien.
--}
 run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
                                         run c e (Fun ef cf:s)
                                         where ef = Fun ef cf : env 

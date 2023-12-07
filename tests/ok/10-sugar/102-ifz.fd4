@@ -1,1 +1,1 @@
-let x:Nat = ifz 0 then (print "OK " 1) else (print "WRONG " 2)
+let x:Nat = ifz 17 then (print "OK " 18) else (print "WRONG " 19)

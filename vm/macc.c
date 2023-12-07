@@ -362,24 +362,16 @@ void run(code init_c)
 		}
 
 		case JUMP: {
-			// 
-			uint32_t lenTrue = *c++;
-			value cond = *s++;
-			if (cond.i == 0)  {
-				code cc = c; // evito manosear el posta
-				// sigo con el cOnlyTrue
-			} else {
-				c += (lenTrue + 2);
-			}
+			uint32_t len = *c++;
+			c += len;
 			break;
 		}
 
 		case CJUMP: {
-			// No utilizamos CJUMP
-			// uint32_t len = *c++;
-			// // Tengo que saltar si no tengo un 0 en el stack
-			// if (!((*s).i))
-			// 	c += len;
+			value cond = *s++;
+			uint32_t len = *c++;
+			if (cond.i != 0)  
+				c += (len+2);
 			break;
 		}
 

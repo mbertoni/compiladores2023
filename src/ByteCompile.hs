@@ -87,6 +87,9 @@ pattern ADD = 6
 pattern SUB :: Int
 pattern SUB = 7
 
+pattern CJUMP :: Int
+pattern CJUMP = 8
+
 pattern FIX :: Int
 pattern FIX = 9
 
@@ -165,7 +168,8 @@ bcc (BOp _ Add x y) = bcx ++ bcy ++ [ADD]
 bcc (BOp _ Sub x y) = bcc x ++ bcc y ++ [SUB]
 bcc (Fix _ fn fty x xty (Sc2 t)) = FUNCTION:[length bct + 1] ++ bct ++ [RETURN, FIX]
   where bct = bcc t  
-bcc (IfZ _ c t e) = bcc c ++ (JUMP: length bcthen: bcthen) ++ (JUMP: length bcelse: bcelse) 
+bcc (IfZ _ c t e) = bcc c ++ (CJUMP: length bcthen: bcthen) 
+                    ++ (JUMP: length bcelse: bcelse) 
   where
     bcthen = bcc t 
     bcelse = bcc e
@@ -191,7 +195,7 @@ bcc (Let _ x _ e1 (Sc1 e2)) = bce1 ++ [SHIFT] ++ bce2 ++ [DROP]
 bcTC :: Term -> Bytecode
 bcTC x@(App _ t1 t2) = bcc t1 ++ bcc t2 ++ [TAILCALL]
   
-bcTC x@(IfZ _ c t e) = bccond ++ (JUMP: length bcTCthen: bcTCthen) ++ (JUMP: length bcTCelse: bcTCelse)
+bcTC x@(IfZ _ c t e) = bccond ++ (CJUMP: length bcTCthen: bcTCthen) ++ (JUMP: length bcTCelse: bcTCelse)
         where
           bccond = bcc c
           bcTCthen = bcTC t 
@@ -276,7 +280,9 @@ run ck@(DROP:c) (v:e) s = do  printState ck (v:e) s
                               run c e s
 run ck@(SHIFT:c) e ss@(v:s) = do  printState ck e ss
                                   run c (v:e) s
+{-
 run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) = 
+  Comento esto porque pasarlo a macc.c es imposible 
   do  printState ck e ss
       if n == 0
         then run cOnlyTrue e s
@@ -285,15 +291,10 @@ run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) =
       where cDropped  = drop (lenTrue+1) c
             cCommon   = drop (head cDropped +1) cDropped
             cOnlyTrue = take lenTrue c ++ cCommon
-{-
-Otra opción para el JUMP, usando CJUMP 
-(es decir, dos JUMPS en vez de uno)
-Si es necesario usar esta, deberíamos ver si es len+1 , len+2 y probarlo bien.
-run (CJUMP:len:c) e (I n:s) = 
-    if n == 0 then run c e s 
-              else run (drop (len+2) c) e s 
-run (JUMP:len:c) e s  = run (drop (len+2) c) e s
 -}
+run (JUMP:len:c)  e            s  = run (drop len c) e s
+run (CJUMP:len:c) e (Natural n:s) = if n == 0 then run c e s 
+                                              else run (drop (len+2) c) e s 
 run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
                                         run c e (Fun ef cf:s)
                                         where ef = Fun ef cf : env 

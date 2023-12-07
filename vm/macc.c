@@ -19,7 +19,7 @@
 STATIC_ASSERT(sizeof (int) >= sizeof (uint32_t));
 
 /* Habilitar impresión de traza? */
-#define TRACE 0
+#define TRACE 1
 
 enum {
 	RETURN   = 1,
@@ -368,10 +368,11 @@ void run(code init_c)
 		}
 
 		case CJUMP: {
-			value cond = *s++;
+			value cond = *--s;
 			uint32_t len = *c++;
-			if (cond.i != 0)  
+			if (cond.i != 0) {
 				c += (len+2);
+      }
 			break;
 		}
 

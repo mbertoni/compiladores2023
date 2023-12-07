@@ -19,11 +19,11 @@ import Data.Binary.Put (putWord32le)
 import Data.ByteString.Lazy qualified as BS
 import Data.Char
 import Data.List (intercalate)
-import Core 
+import Core
 import MonadFD4
 import Subst
 import Common (abort)
-import Global ( Conf(Conf), Mode(Interactive) ) 
+import Global ( Conf(Conf), Mode(Interactive) )
 import qualified Control.Monad as Control.Monad.ExceptT
 type Opcode = Int
 
@@ -109,10 +109,10 @@ pattern PRINTN :: Int
 pattern PRINTN = 14
 
 pattern JUMP :: Int
-pattern JUMP = 15 
+pattern JUMP = 15
 
 pattern TAILCALL :: Int
-pattern TAILCALL = 16 
+pattern TAILCALL = 16
 
 -- función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
@@ -143,62 +143,62 @@ showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
 
 bcc ::  Term -> Bytecode
-bcc (Var info (Bound i)) = ACCESS:[i] 
+bcc (Var info (Bound i)) = ACCESS:[i]
 bcc (Var _ (Free _)) = abort "BCC: Llegó una free"
 bcc (Var _ (Global n)) = abort "BCC: Llegó una global"
-bcc (Lit _ (N n)) = CONST:[n] 
-bcc (Lit _ (S s)) = abort "BCC: Llegó string" 
-bcc (Lit _ (U u)) = abort "BCC: Llegó unit" 
-bcc (Lam _ _ _ (Sc1 t)) = FUNCTION:length bct:bct -- ++ [RETURN] 
-  where 
-    -- bct = bcc t  
+bcc (Lit _ (N n)) = CONST:[n]
+bcc (Lit _ (S s)) = abort "BCC: Llegó string"
+bcc (Lit _ (U u)) = abort "BCC: Llegó unit"
+bcc (Lam _ _ _ (Sc1 t)) = FUNCTION:length bct:bct -- ++ [RETURN]
+  where
+    -- bct = bcc t
     -- Anda con: FUNCTION:length bct + 1:bct ++ [RETURN]
-    bct = bcTC t  
+    bct = bcTC t
 bcc (App _ t1 t2) = bct1 ++ bct2 ++ [CALL]
   where
     bct1 = bcc t1
     bct2 = bcc t2
 bcc (Pnt _ (S s) t) = bcc t ++ [PRINT] ++ string2bc s ++ [NULL] ++ [PRINTN]
 bcc (Pnt _ (N n) t) = abort "BCC: Se quiso imprimir un número"
-bcc (Pnt _ (U u) t) = abort "BCC: Se quiso imprimir unit" 
+bcc (Pnt _ (U u) t) = abort "BCC: Se quiso imprimir unit"
 bcc (BOp _ Add x y) = bcx ++ bcy ++ [ADD]
   where bcx = bcc x
         bcy = bcc y
-  
+
 bcc (BOp _ Sub x y) = bcc x ++ bcc y ++ [SUB]
 bcc (Fix _ fn fty x xty (Sc2 t)) = FUNCTION:[length bct + 1] ++ bct ++ [RETURN, FIX]
-  where bct = bcc t  
-bcc (IfZ _ c t e) = bcc c ++ (CJUMP: length bcthen: bcthen) 
-                    ++ (JUMP: length bcelse: bcelse) 
+  where bct = bcc t
+bcc (IfZ _ c t e) = bcc c ++ (CJUMP: length bcthen: bcthen)
+                    ++ (JUMP: length bcelse: bcelse)
   where
-    bcthen = bcc t 
+    bcthen = bcc t
     bcelse = bcc e
- 
+
 {-
-Otra opción para el JUMP, usando CJUMP 
+Otra opción para el JUMP, usando CJUMP
 (es decir, dos JUMPS en vez de uno)
 
 bcc (IfZ _ c t f) = do
   bccond <- bcc c
-  bcthen <- bcc t 
+  bcthen <- bcc t
   bcelse <- bcc e
   return $ bccond ++ [CJUMP, length bcthen] ++ bcthen ++ [JUMP, length bcelse] ++ bcelse
 
 -}
 bcc (Let _ x _ e1 (Sc1 e2)) = bce1 ++ [SHIFT] ++ bce2 ++ [DROP]
-  where 
+  where
     bce1 = bcc e1
     bce2 = bcc e2
-                              
+
 -- bcc _ = abort "Patrón no capturado en bcc"
 
 bcTC :: Term -> Bytecode
 bcTC x@(App _ t1 t2) = bcc t1 ++ bcc t2 ++ [TAILCALL]
-  
+
 bcTC x@(IfZ _ c t e) = bccond ++ (CJUMP: length bcTCthen: bcTCthen) ++ (JUMP: length bcTCelse: bcTCelse)
         where
           bccond = bcc c
-          bcTCthen = bcTC t 
+          bcTCthen = bcTC t
           bcTCelse = bcTC e
 bcTC x@(Let _ _ _ m (Sc1 n)) = bcc m ++ [SHIFT] ++ bcTC n ++ [DROP]
 bcTC x = bcc x ++ [RETURN]
@@ -213,17 +213,17 @@ bc2string = map chr
 
 byteCompileModule :: Module -> Bytecode
 byteCompileModule m = bccWithStop (getTerm $ moduleIntoTerm m)
-  
-{- 
+
+{-
   let x = t1
   let y = t2 } => let x = t1 in (let y = t2 in t3 )
-  let z = t3 
--} 
+  let z = t3
+-}
 moduleIntoTerm :: Module -> TTerm
 moduleIntoTerm [] = abort "Módulo vacío"
 moduleIntoTerm [dtt] = dtt.body
 moduleIntoTerm (dtt:dtts) = Let i dtt.name ty dtt.body rest
-          where 
+          where
             rest = close dtt.name $ moduleIntoTerm dtts
             ty = getTy dtt.body
             i = getInfo dtt.body
@@ -232,7 +232,7 @@ global2free :: [Name] -> Decl TTerm -> Decl TTerm
 global2free globals dtt = Decl{pos = dtt.pos, name = dtt.name, body = visit (replaceGlobal globals) dtt.body}
 
 replaceGlobal :: [Name] -> TTerm -> TTerm
-replaceGlobal ns tt@(Var i (Global x)) = if x `elem` ns then Var i (Free x) else tt 
+replaceGlobal ns tt@(Var i (Global x)) = if x `elem` ns then Var i (Free x) else tt
 replaceGlobal ns tt = tt
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
@@ -261,15 +261,15 @@ run ck@(CONST:n:c) e s = do printState ck e s
 run ck@(ADD:c) e ss@(Natural n:Natural m:s) = do  printState ck e ss
                                                   run c e (Natural (m+n):s)
 run ck@(SUB:c) e ss@(Natural y:Natural x:s) = do  printState ck e ss
-                                                  run c e (Natural (max (x-y) 0):s) 
+                                                  run c e (Natural (max (x-y) 0):s)
 run ck@(CALL:c) e ss@(v:Fun ef cf:s) = do   printState ck e ss
-                                            run cf (v:ef) (RetAd e c:s)  
+                                            run cf (v:ef) (RetAd e c:s)
 run ck@(FUNCTION:size:c) e s = do printState ck e s
                                   printState (drop size c) e (Fun e cf:s)
                                   run (drop size c) e (Fun e cf:s)
   where cf = take size c
 run ck@(PRINTN:c) e ss@(Natural n:s) = do   printState ck e ss
-                                            printFD4 (show n) 
+                                            printFD4 (show n)
                                             run c e (Natural n:s)
 run ck@(PRINT:c) e s = do printState ck e s
                           printFD4NoNewLine strToPrint
@@ -281,25 +281,25 @@ run ck@(DROP:c) (v:e) s = do  printState ck (v:e) s
 run ck@(SHIFT:c) e ss@(v:s) = do  printState ck e ss
                                   run c (v:e) s
 {-
-run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) = 
-  Comento esto porque pasarlo a macc.c es imposible 
+run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) =
+  Comento esto porque pasarlo a macc.c es imposible
   do  printState ck e ss
       if n == 0
         then run cOnlyTrue e s
-        else run (drop (lenTrue +2) c) e s 
-        -- Tengo que droppear el JUMPFALSE, voy directo a ejecutar 
+        else run (drop (lenTrue +2) c) e s
+        -- Tengo que droppear el JUMPFALSE, voy directo a ejecutar
       where cDropped  = drop (lenTrue+1) c
             cCommon   = drop (head cDropped +1) cDropped
             cOnlyTrue = take lenTrue c ++ cCommon
 -}
 run (JUMP:len:c)  e            s  = run (drop len c) e s
-run (CJUMP:len:c) e (Natural n:s) = if n == 0 then run c e s 
-                                              else run (drop (len+2) c) e s 
+run (CJUMP:len:c) e (Natural n:s) = if n == 0 then run c e s
+                                              else run (drop (len+2) c) e s
 run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
                                         run c e (Fun ef cf:s)
-                                        where ef = Fun ef cf : env 
+                                        where ef = Fun ef cf : env
 run (RETURN:_) _ ss@(v:RetAd e c:s) = run c e (v:s)
-run (TAILCALL:_) env (v:Fun ef cf:s) = run cf (v:ef) s                        
+run (TAILCALL:_) env (v:Fun ef cf:s) = run cf (v:ef) s
 run ck@[STOP] e s = do  printState ck e s
                         -- printFD4 $ "Finnnn: " ++ showVal s
                         return ()
@@ -307,19 +307,19 @@ run (STOP:xs) e s = failFD4 "Tengo un STOP y más instrucciones"
 run [] e s = failFD4 "No tengo más instrucciones"
 run (ACCESS:xs) e s = failFD4 "Llegó un Access"
 run (CONST:xs) e s = failFD4 "Llegó un Const"
-run b e s = failFD4 $ "ERROR en \nBC: " ++ showBC b ++ 
-                      "\nEnv " ++ showVal e ++ 
+run b e s = failFD4 $ "ERROR en \nBC: " ++ showBC b ++
+                      "\nEnv " ++ showVal e ++
                       "\nStack " ++ showVal s
 
 takeUntilNull :: Bytecode -> Bytecode
 takeUntilNull [] = []
-takeUntilNull (c:cs) = case c of 
+takeUntilNull (c:cs) = case c of
                         NULL -> []
                         _ -> c : takeUntilNull cs
-                      
+
 dropUntilNull:: Bytecode -> Bytecode
 dropUntilNull [] = []
-dropUntilNull (c:cs) = case c of 
+dropUntilNull (c:cs) = case c of
                         NULL -> cs
                         _ -> dropUntilNull cs
 
@@ -337,24 +337,24 @@ testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
                                (Left _)  -> print "Error"
 
 testRun' :: MonadFD4 m => Term -> m ()
-testRun' t = do let bc = bccWithStop t 
+testRun' t = do let bc = bccWithStop t
                 -- printFD4 $ rawBC2string bc
                 printFD4 "Comienza el run:"
                 runBC bc
 
 printState :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
-printState c e s = do 
+printState c e s = do
           let debugging = False
           Control.Monad.ExceptT.when debugging $ printFD4 ( rawBC2string c )
           Control.Monad.ExceptT.when debugging $ printFD4 ( intercalate " - " [showBC c, showVal e, showVal s] )
-                      
+
 rawBC2string :: Bytecode -> String
 rawBC2string [] = ""
 rawBC2string (x:xs) = show x ++ " " ++ rawBC2string xs
 
 showVal :: [Value] -> String
 showVal (Natural n :env) = "Nat "++ show n ++ "; " ++ showVal env
-showVal (Fun e bc  :env) = "Fun {"++ showVal e ++ showBC bc ++ "}: " ++ showVal env 
+showVal (Fun e bc  :env) = "Fun {"++ showVal e ++ showBC bc ++ "}: " ++ showVal env
 showVal (RetAd e bc:env) = "Ret {{"++ showVal e ++ showBC bc ++ "}}: " ++ showVal env
 showVal [] = ""
 

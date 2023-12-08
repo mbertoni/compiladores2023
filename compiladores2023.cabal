@@ -20,37 +20,33 @@ extra-source-files:
   ChangeLog.md
   README.md
 
-
-
 executable compiladores2023
   main-is:            Main.hs
 
   -- Modules included in this executable, other than Main.
   other-modules:
     ByteCompile
-    Optimizer
+    C
     CEK
+    ClosureConvert
     Common
     Core
     Elab
     Errors
     Eval
     Global
+    IR
     MonadFD4
+    Optimizer
     Parse
     PPrint
     Scaffolding
     Subst
     Surf
     TypeChecker
-    IR
-    ClosureConvert
-    
-  
+
   hs-source-dirs:     src
-
   default-language:   GHC2021
-
   ghc-options:
     -haddock -threaded -rtsopts -with-rtsopts=-N -fwarn-tabs
     -fwarn-unused-imports -fwarn-missing-signatures
@@ -66,8 +62,8 @@ executable compiladores2023
     TupleSections
 
   other-extensions:
-    PatternSynonyms
     GADTs
+    PatternSynonyms
 
   build-depends:
     , base                         >=4.17

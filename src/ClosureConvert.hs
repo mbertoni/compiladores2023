@@ -60,11 +60,9 @@ closureConvert t = abort "Unimplemented PM"
 runCC' :: Module -> Ms [IrDecl]
 runCC' [] = return []
 runCC' (d:ds) = do
-    tt <- closureConvert dbody
+    tt <- closureConvert d.body
     dst <- runCC' ds
-    return $ IrVal dname (convertType $ getTy dbody) tt:dst
-    where   dbody = body d
-            dname = name d
-
+    return $ IrVal d.name (convertType $ getTy d.body) tt:dst
+    
 runCC:: [Decl Term] -> IrDecls
 runCC = abort "Unimplemented"

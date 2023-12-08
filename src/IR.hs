@@ -38,5 +38,4 @@ newtype IrDecls = IrDecls { irDecls :: [IrDecl] }
 La siguiente instancia es sólo para debugging
 -}
 instance Show IrDecls where
-  show (IrDecls decls) =
-   concatMap (\d -> show d ++ "\n") decls
+  show (IrDecls decls) = concatMap (\d -> show d ++ "\n") decls

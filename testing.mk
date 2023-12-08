@@ -1,5 +1,5 @@
 # TESTDIRS += tests/analizando/
-# TESTDIRS += tests/ok/00-basicos
+TESTDIRS += tests/ok/00-basicos
 TESTDIRS += tests/ok/10-sugar
 TESTDIRS += tests/ok/20-tysym
 

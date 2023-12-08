@@ -1,5 +1,5 @@
 module C (ir2C) where
-
+import Common (abort)
 import Core hiding (name, pretty)
 import Data.Char (isAlpha, ord)
 import Data.String (fromString)
@@ -48,6 +48,7 @@ name n = str $ "fd4_" ++ escape n -- prefijo fd4 para evitar colision con nombre
 
 -- Convierte nombres con caracteres no válidos en C (como la comilla simple)
 -- a nombres válidos.
+escape :: String -> String
 escape = concatMap e1
   where
     e1 :: Char -> String
@@ -81,9 +82,7 @@ ir2doc (IrCall f args ty) =
   cast
     ty
     ( parens (funcast <+> ir2doc f)
-        <> tupled (map (\a -> voidptr <> ir2doc a) args) -- func
-        -- args
-        -- ir2doc (IrConst (N n)) = pretty n
+        <> tupled (map (\a -> voidptr <> ir2doc a) args)
     )
 ir2doc (IrBinaryOp Add a b) = ir2doc a <+> str "+" <+> ir2doc b
 ir2doc (IrBinaryOp Sub a b) = stmts [str "fd4_sub" <> tupled [ir2doc a, ir2doc b]]
@@ -102,7 +101,8 @@ ir2doc (MkClosure f args) =
   str "fd4_mkclosure"
     <> tupled (name f : pretty (length args) : map ir2doc args)
 ir2doc (IrAccess t ty i) = cast ty $ parens (ir2doc t) <> brackets (pretty i)
-ir2doc _ = funcast
+ir2doc (IrConst (N n)) = pretty n
+ir2doc (IrConst _ ) = abort "TODO"
 
 op2doc :: BinaryOp -> Doc a
 op2doc Add = str "+"

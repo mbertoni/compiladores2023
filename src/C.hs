@@ -4,6 +4,7 @@ import Core hiding (name, pretty)
 import Data.Char (isAlpha, ord)
 import Data.String (fromString)
 import Data.Text (unpack)
+import Common (abort)
 import IR
 import Prettyprinter
 import Prettyprinter.Render.Terminal (renderStrict)
@@ -102,7 +103,9 @@ ir2doc (MkClosure f args) =
     <> tupled (name f : pretty (length args) : map ir2doc args)
 ir2doc (IrAccess t ty i) = cast ty $ parens (ir2doc t) <> brackets (pretty i)
 ir2doc (IrConst (N n)) = pretty n
-ir2doc (IrConst _ ) = abort "TODO"
+ir2doc (IrConst (S s)) = abort "TODO: Vino un string"
+ir2doc (IrConst (U u)) = abort "TODO: Vino un unit"
+
 
 op2doc :: BinaryOp -> Doc a
 op2doc Add = str "+"

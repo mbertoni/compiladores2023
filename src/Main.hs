@@ -37,7 +37,7 @@ import System.Console.Haskeline
 import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPrint, hPutStrLn, stderr)
 import TypeChecker (tc, tcDecl)
-import qualified Control.Monad as Control.Monad.ExceptT
+import Control.Monad
 import ByteCompile
 import System.FilePath (dropExtension)
 -- import Optimizer
@@ -199,10 +199,10 @@ handleDeclaration d = do
       Right e@(C.Decl p x ty) -> addTypeDecl e
     Typecheck -> do
       f <- getLastFile
-      Control.Monad.ExceptT.when debugging $ printFD4 ("Chequeando tipos de " ++ f)
+      when debugging $ printFD4 ("Chequeando tipos de " ++ f)
       case elaborated of
         Left (C.Decl p x tm) -> do
-          Control.Monad.ExceptT.when debugging $ printFD4 ("\nTypechecking")
+          when debugging $ printFD4 ("\nTypechecking")
           tt <- tcDecl (C.Decl p x tm)
           addTermDecl tt
           ppterm <- ppTermDecl tt
@@ -215,13 +215,13 @@ handleDeclaration d = do
 
 evalAndAdd :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m (C.Decl C.TTerm)
 evalAndAdd debugging d@(C.Decl p x tm) f =  do
-          Control.Monad.ExceptT.when debugging $ printFD4 ("\nBefore Elabing: " ++ show d)
-          Control.Monad.ExceptT.when debugging $ printFD4 ("\nRaw: " ++ show tm)
+          when debugging $ printFD4 ("\nBefore Elabing: " ++ show d)
+          when debugging $ printFD4 ("\nRaw: " ++ show tm)
           tt <- tcDecl d
-          Control.Monad.ExceptT.when debugging $ printFD4 ("\nTypeChecked: " ++ show tt)
-          Control.Monad.ExceptT.when debugging $ printFD4 "\nEvaling: "
+          when debugging $ printFD4 ("\nTypeChecked: " ++ show tt)
+          when debugging $ printFD4 "\nEvaling: "
           te <- f (C.body tt)
-          Control.Monad.ExceptT.when debugging $ printFD4 ("\nAfter Evaling: " ++ show te)
+          when debugging $ printFD4 ("\nAfter Evaling: " ++ show te)
           -- opt <- getOpt
           -- td' <- if opt then optimize td else td
           -- Control.Monad.ExceptT.when debugging $ printFD4 ("\nAfter Optimizing: " ++ show te)

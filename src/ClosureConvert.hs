@@ -34,7 +34,7 @@ convertTy (Named _) = abort "error"
 convertTy Unit = abort "error"
 
 convertTerm :: TTerm -> M w Ir
-convertTerm (Var _ (Bound i)) = return $ case i of _ -> _
+convertTerm (Var _ (Bound i)) = abort "CC-Unimplemented -> Bound Variable"
 convertTerm (Var _ (Free n)) = abort "Free Variable"
 convertTerm (Var _ (Global n)) = return $ IrGlobal n
 convertTerm (Lit _ c) = return $ IrConst c
@@ -59,15 +59,51 @@ convertTerm (App (_, fty) f x) = do
   let args = [ccF, ccX]
   let irCall = IrCall clos0 args (convertTy fty)
   return $ IrLet "func" IrClo ccF irCall
-convertTerm (Lam (_, fty) n _ t@(Sc1 _)) = do
+
+convertTerm (Let _ xn xty alias (Sc1 bdy)) = do
+  decl <- convertTerm alias
+  scp <- convertTerm bdy
+  return $ IrLet xn (convertTy xty) decl scp
+
+convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do
   fr <- get
   put $ fr + 1
-  return $ MkClosure ("__f" ++ show fr) freeNames
-  where
-    body = open n t
-    freeNames = map IrVar (freeVars body)
-convertTerm (Let _ xn xty bdy (Sc1 t)) = do
-  decl <- convertTerm bdy
-  scp <- convertTerm t
-  return $ IrLet xn (convertTy xty) decl scp
-convertTerm (Fix _ _ _ _ _ _) = _
+  let funTy = convertTy xty
+  let funName = "__f" ++ show fr
+  let closName = funName ++ "_closure"
+  let freeVarsInBody = freeVarsWithTheirType bdy -- ¿sale sólo la x? ¿debo tener algo?
+  let openned = open xn sc
+  convertedBody <- convertTerm openned
+  -- deberíamos reemplazar en convertedBody las variables libres por el valor 
+  -- <supongo que con IrAccess>
+  let replaced = replaceFrees freeVarsInBody convertedBody
+  let funDecl = IrFun funName funTy [(closName, IrClo), (xn, IrInt)] replaced
+  -- tell funDecl
+  let freeNames = map IrVar (map fst freeVarsInBody)
+  return $ MkClosure closName freeNames
+
+
+convertTerm (Fix i fn fty xn xty sc@(Sc2 bdy)) = do 
+  frf <- get
+  put $ frf + 1
+  let funTy = convertTy fty
+  let funName = "__fix" ++ show frf
+  let closName = funName ++ "_closure"
+  frx <- get
+  put $ frx + 1
+  let xTy = convertTy xty
+  let xName = "__x" ++ show frx
+  
+  let freeVarsInBody = freeVarsWithTheirType bdy -- ¿sale sólo la x? ¿debo tener algo?
+  
+  let openned = open2 fn xn sc
+  convertedBody <- convertTerm openned
+
+  -- deberíamos reemplazar en convertedBody las variables libres por el valor 
+  -- <supongo que con IrAccess>
+  let replaced = replaceFrees freeVarsInBody convertedBody
+
+  let funDecl = IrFun funName funTy [(closName, IrClo), (xn, IrInt)] replaced
+  -- tell funDecl
+  let freeNames = map IrVar (map fst freeVarsInBody)
+  return $ MkClosure clos_name freeNames

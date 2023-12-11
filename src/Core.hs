@@ -188,3 +188,19 @@ freeVars tm = nubSort $ go tm []
     go (IfZ _ c t e) xs = go c $ go t $ go e xs
     go (Lit _ _) xs = xs
     go (Let _ _ _ e (Sc1 t)) xs = go e (go t xs)
+
+
+freeVarsWithTheirType:: TTerm -> [(Name,Ty)]
+freeVarsWithTheirType tm = go tm []
+  where
+    go (Var info (Free v)) xs = (v, snd info) : xs
+    go (Var _ (Global v)) xs = xs
+    go (Var _ _) xs = xs
+    go (Lam _ _ _ (Sc1 t)) xs = go t xs
+    go (App _ l r) xs = go l $ go r xs
+    go (Pnt _ _ t) xs = go t xs
+    go (BOp _ _ t u) xs = go t $ go u xs
+    go (Fix _ _ _ _ _ (Sc2 t)) xs = go t xs
+    go (IfZ _ c t e) xs = go c $ go t $ go e xs
+    go (Lit _ _) xs = xs
+    go (Let _ _ _ e (Sc1 t)) xs = go e (go t xs)

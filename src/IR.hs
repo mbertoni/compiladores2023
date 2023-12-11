@@ -8,7 +8,7 @@ data Ir = IrVar Name
                         -- ^ Tipo de expr final
         | IrConst Literal
         | IrPrint String Ir
-        | IrBinaryOp BinaryOp Ir Ir 
+        | IrBinaryOp BinaryOp Ir Ir
         | IrLet Name IrTy Ir Ir
         | IrIfZ Ir Ir Ir
         | MkClosure Name [Ir]

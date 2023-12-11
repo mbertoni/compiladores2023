@@ -4,70 +4,70 @@ import Common (abort)
 import Control.Monad.State
 import Control.Monad.Writer
 import Core
-import GHC.IO.Handle.Types (Handle__)
+import Data.Composition
 import IR
 import Subst
 
-convertType :: Ty -> IrTy
--- TODO
-convertType Nat = IrInt
-convertType (Arrow _ _) = IrClo
-convertType String = abort "error"
-convertType (Named _) = abort "error"
-convertType Unit = abort "error"
+type M w a = StateT Int (Writer w) a
 
-type Ms = StateT Int (Writer [IrDecl])
+runM :: Int -> M w a -> ((a, Int), w)
+runM i m = runWriter $ runStateT m i
 
-closureConvert :: TTerm -> Ms Ir
-closureConvert (Var _ (Bound i)) = return $ case i of IrVar (fresh )
-closureConvert (Var _ (Free n)) = abort "Free Variable"
-closureConvert (Var _ (Global n)) = return $ IrGlobal n
-closureConvert (Lit _ c) = return $ IrConst c
-closureConvert (BOp _ op t1 t2) = do
-  ccT1 <- closureConvert t1
-  ccT2 <- closureConvert t2
+runCC :: Module -> [IrDecl]
+runCC = snd . runM 0 . mapM convertDecl
+
+convertDecl :: Decl TTerm -> M [IrDecl] ()
+convertDecl d = do
+  ir <- convertTerm d.body
+  tell . pure $ case ir of
+    MkClosure nom verdura -> IrFun d.name (convertTy $ getTy d.body) [] ir
+    i@(IrBinaryOp bop ir1 ir2) -> IrVal d.name (convertTy $ getTy d.body) i
+    _ -> IrVal d.name (convertTy $ getTy d.body) ir
+
+
+
+convertTy :: Ty -> IrTy
+convertTy Nat = IrInt
+convertTy (Arrow _ _) = IrClo
+convertTy String = abort "error"
+convertTy (Named _) = abort "error"
+convertTy Unit = abort "error"
+
+convertTerm :: TTerm -> M w Ir
+convertTerm (Var _ (Bound i)) = return $ case i of _ -> _
+convertTerm (Var _ (Free n)) = abort "Free Variable"
+convertTerm (Var _ (Global n)) = return $ IrGlobal n
+convertTerm (Lit _ c) = return $ IrConst c
+convertTerm (BOp _ op t1 t2) = do
+  ccT1 <- convertTerm t1
+  ccT2 <- convertTerm t2
   return $ IrBinaryOp op ccT1 ccT2
-closureConvert (IfZ _ c t e) = do
-  ccC <- closureConvert c
-  ccT <- closureConvert t
-  ccE <- closureConvert e
+convertTerm (IfZ _ c t e) = do
+  ccC <- convertTerm c
+  ccT <- convertTerm t
+  ccE <- convertTerm e
   return $ IrIfZ ccC ccT ccE
-closureConvert (Pnt _ s t) = do
-  ccT <- closureConvert t
+convertTerm (Pnt _ s t) = do
+  ccT <- convertTerm t
   return $ IrPrint (show s) ccT
-closureConvert (App (_, fty) f x) = do
-  ccF <- closureConvert f
-  ccX <- closureConvert x
+convertTerm (App (_, fty) f x) = do
+  ccF <- convertTerm f
+  ccX <- convertTerm x
   let clos0 = IrAccess ccF IrClo 0
   -- el IrClo hace referencia al primer elemento de ccf
   -- o hace referencia al ccf[0] ??
   let args = [ccF, ccX]
-  let irCall = IrCall clos0 args (convertType fty)
+  let irCall = IrCall clos0 args (convertTy fty)
   return $ IrLet "func" IrClo ccF irCall
-closureConvert (Lam (_, fty) n _ t@(Sc1 _)) = do
+convertTerm (Lam (_, fty) n _ t@(Sc1 _)) = do
   fr <- get
   put $ fr + 1
   return $ MkClosure ("__f" ++ show fr) freeNames
   where
     body = open n t
     freeNames = map IrVar (freeVars body)
-closureConvert (Let _ xn xty bdy (Sc1 t)) = do
-  decl <- closureConvert bdy
-  scp <- closureConvert t
-  return $ IrLet xn (convertType xty) decl scp
-closureConvert t = abort "Unimplemented PM"
-
--- Resta App, Fix
-
-runCC' :: Decl TTerm -> Ms ()
-runCC' d = do
-  ir <- closureConvert d.body
-  tell . pure $ case ir of
-    MkClosure nom verdura -> IrFun d.name (convertType $ getTy d.body) [] ir
-    _ -> IrVal d.name (convertType $ getTy d.body) ir
-
-runCC :: Module -> [IrDecl]
-runCC m = runner $ mapM_ runCC' m
-
-runner :: Ms a -> [IrDecl]
-runner m = snd . runWriter $ runStateT m 0
+convertTerm (Let _ xn xty bdy (Sc1 t)) = do
+  decl <- convertTerm bdy
+  scp <- convertTerm t
+  return $ IrLet xn (convertTy xty) decl scp
+convertTerm (Fix _ _ _ _ _ _) = _

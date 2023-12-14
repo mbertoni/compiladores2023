@@ -47,7 +47,7 @@ data Mode
 
   | Bytecompile
   | RunVM
--- \| CC
+  | CC
 -- \| Canon
 -- \| Assembler
 -- \| Build

@@ -40,6 +40,9 @@ import TypeChecker (tc, tcDecl)
 import Control.Monad
 import ByteCompile
 import System.FilePath (dropExtension)
+import IR
+import C ( ir2C )
+import ClosureConvert ( runCC )
 -- import Optimizer
 
 prompt :: String
@@ -56,8 +59,8 @@ parseMode =
             <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
             <|> flag Eval Eval (long "eval" <> short 'e' <> help "Evaluar un programa")
             <|> flag CEK CEK (long "cek" <> short 'k' <> help "Evaluar un programa con la CEK")
+            <|> flag' CC  (long "cc" <> short 'c' <> help "Compilar a código C") 
         )
-    -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")  <- sería acá lo que hay que descomentar?
     -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonización")
     -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
     -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
@@ -88,12 +91,14 @@ main = execParser opts >>= go
     go (Interactive, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     -- go (InteractiveCEK, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
+    go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ closureConvert files
     go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
     -- go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
     go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
 bytecompile :: MonadFD4 m => FilePath -> m ()
 bytecompile f = do
+    -- init <- getTime
     decls <- loadFile f
     mapM_ handleDeclaration decls
     gdecls <- reverse <$> gets termEnvironment
@@ -104,12 +109,31 @@ bytecompile f = do
     let bc = byteCompileModule gdeclReplaced
     let newFile = dropExtension f ++ ".bc32"
     liftIO $ bcWrite bc newFile
+    -- end <- getTime
+    -- printFD4 $ "Tiempo consumido en compilación de Bytecode: " ++ show (end - init)
 
 runVM :: MonadFD4 m => FilePath -> m ()
 runVM f = do
+  -- init <- getTime
   bc <- liftIO $ bcRead f
   runBC bc
+  -- end <- getTime
+  -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (end - init)
 
+closureConvert :: MonadFD4 m => FilePath -> m ()
+closureConvert f = do
+    -- podríamos unificarlo con bytecompile
+    -- init <- getTime
+    decls <- loadFile f
+    mapM_ handleDeclaration decls
+    gdecls <- reverse <$> gets termEnvironment
+    let gNames = map (\d -> d.name) gdecls
+    let gdeclReplaced = map (global2free gNames) gdecls
+    let code = (ir2C . IrDecls . runCC) gdeclReplaced
+    let newFile = dropExtension f ++ ".c"
+    liftIO $ ccWrite code newFile
+    -- end <- getTime
+    -- printFD4 $ "Tiempo consumido en compilación de C: " ++ show (end - init)
 
 runOrFail :: Conf -> FD4 a -> IO a
 runOrFail c m = do

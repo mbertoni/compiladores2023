@@ -33,7 +33,7 @@ convertTy String = abort "error"
 convertTy (Named _) = abort "error"
 convertTy Unit = abort "error"
 
-convertTerm :: TTerm -> M w Ir
+convertTerm :: TTerm -> StateT Int (Writer [IrDecl]) Ir
 convertTerm (Var _ (Bound i)) = abort "CC-Unimplemented -> Bound Variable"
 convertTerm (Var _ (Free n)) = abort "Free Variable"
 convertTerm (Var _ (Global n)) = return $ IrGlobal n
@@ -66,18 +66,18 @@ convertTerm (Let _ xn xty alias (Sc1 bdy)) = do
   return $ IrLet xn (convertTy xty) decl scp
 
 convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do
-  fr <- get
-  put $ fr + 1
-  let funTy = convertTy xty
-  let funName = "__f" ++ show fr
+  frx <- get
+  put $ frx + 1
+  let xTy = convertTy xty
+  let funName = "__f" ++ show frx
   let closName = funName ++ "_closure"
   let freeVarsInBody = freeVarsWithTheirType bdy -- ¿sale sólo la x? ¿debo tener algo?
   let openned = open xn sc
   convertedBody <- convertTerm openned
   -- deberíamos reemplazar en convertedBody las variables libres por el valor 
   -- <supongo que con IrAccess>
-  let replaced = replaceFrees freeVarsInBody convertedBody
-  let funDecl = IrFun funName funTy [(closName, IrClo), (xn, IrInt)] replaced
+  -- let replaced = replaceFrees freeVarsInBody convertedBody
+  let funDecl = IrFun funName xTy [(closName, IrClo), (xn, IrInt)] convertedBody
   -- tell funDecl
   let freeNames = map IrVar (map fst freeVarsInBody)
   return $ MkClosure closName freeNames
@@ -101,9 +101,9 @@ convertTerm (Fix i fn fty xn xty sc@(Sc2 bdy)) = do
 
   -- deberíamos reemplazar en convertedBody las variables libres por el valor 
   -- <supongo que con IrAccess>
-  let replaced = replaceFrees freeVarsInBody convertedBody
+  -- let replaced = replaceFrees freeVarsInBody convertedBody
 
-  let funDecl = IrFun funName funTy [(closName, IrClo), (xn, IrInt)] replaced
+  let funDecl = IrFun funName funTy [(closName, IrClo), (xn, xTy)] convertedBody
   -- tell funDecl
   let freeNames = map IrVar (map fst freeVarsInBody)
-  return $ MkClosure clos_name freeNames
+  return $ MkClosure funName freeNames

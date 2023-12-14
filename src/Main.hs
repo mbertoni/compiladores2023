@@ -20,7 +20,7 @@ import Data.List (intercalate, isPrefixOf, nub)
 import Data.Maybe (fromMaybe)
 import Elab (declaration, term, ident)
 import Errors
-import Common ()
+import Common (abort)
 import Eval (eval)
 import Global
 import MonadFD4
@@ -95,21 +95,41 @@ main = execParser opts >>= go
     go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
     go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
-bytecompile :: MonadFD4 m => FilePath -> m ()
-bytecompile f = do
-    -- init <- getTime
+compile :: MonadFD4 m => FilePath -> m ()
+compile f = do -- Debería unificar Bytecompile y CC
+    m <- getMode
     decls <- loadFile f
     mapM_ handleDeclaration decls
     gdecls <- reverse <$> gets termEnvironment
     let gNames = map (\d -> d.name) gdecls
     let gdeclReplaced = map (global2free gNames) gdecls
-    -- let decled = declIntoTerm gdeclReplaced
-    -- abort $ "Names: " ++ show gNames ++ "\nSinReemplazar: " ++ show gdecls ++ "\nReemplazada: " ++ show gdeclReplaced ++ "\nDecled:" ++ show decled
+    -- init <- getTime
+    case m of 
+      Bytecompile -> do 
+        let bc = byteCompileModule gdeclReplaced
+        let newFile = dropExtension f ++ ".bc32"
+        liftIO $ bcWrite bc newFile
+      CC -> do 
+        let code = (ir2C . IrDecls . runCC) gdeclReplaced
+        let newFile = dropExtension f ++ ".c"
+        printFD4 code
+        liftIO $ ccWrite code newFile
+      _ -> abort "Modo de compilación de archivo incorrecto"
+    -- end <- getTime
+    -- printFD4 $ "Tiempo consumido en compilación de " ++
+    --                  show m ++ ": " ++ show (end - init)
+
+
+bytecompile :: MonadFD4 m => FilePath -> m ()
+bytecompile f = do
+    decls <- loadFile f
+    mapM_ handleDeclaration decls
+    gdecls <- reverse <$> gets termEnvironment
+    let gNames = map (\d -> d.name) gdecls
+    let gdeclReplaced = map (global2free gNames) gdecls
     let bc = byteCompileModule gdeclReplaced
     let newFile = dropExtension f ++ ".bc32"
     liftIO $ bcWrite bc newFile
-    -- end <- getTime
-    -- printFD4 $ "Tiempo consumido en compilación de Bytecode: " ++ show (end - init)
 
 runVM :: MonadFD4 m => FilePath -> m ()
 runVM f = do
@@ -121,8 +141,6 @@ runVM f = do
 
 compileC :: MonadFD4 m => FilePath -> m ()
 compileC f = do
-    -- podríamos unificarlo con bytecompile
-    -- init <- getTime
     decls <- loadFile f
     mapM_ handleDeclaration decls
     gdecls <- reverse <$> gets termEnvironment
@@ -130,9 +148,8 @@ compileC f = do
     let gdeclReplaced = map (global2free gNames) gdecls
     let code = (ir2C . IrDecls . runCC) gdeclReplaced
     let newFile = dropExtension f ++ ".c"
+    printFD4 code
     liftIO $ ccWrite code newFile
-    -- end <- getTime
-    -- printFD4 $ "Tiempo consumido en compilación de C: " ++ show (end - init)
 
 runOrFail :: Conf -> FD4 a -> IO a
 runOrFail c m = do

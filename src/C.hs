@@ -4,7 +4,6 @@ import Core hiding (name, pretty)
 import Data.Char (isAlpha, ord)
 import Data.String (fromString)
 import Data.Text (unpack)
-import Common (abort)
 import IR
 import Prettyprinter
 import Prettyprinter.Render.Terminal (renderStrict)

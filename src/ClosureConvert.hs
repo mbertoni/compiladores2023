@@ -4,7 +4,7 @@ import Common (abort)
 import Control.Monad.State
 import Control.Monad.Writer
 import Core
-import Data.Composition
+import Data.Composition ()
 import IR
 import Subst
 

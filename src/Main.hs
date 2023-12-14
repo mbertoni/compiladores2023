@@ -91,9 +91,8 @@ main = execParser opts >>= go
     go (Interactive, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     -- go (InteractiveCEK, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
-    go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ closureConvert files
+    go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
     go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
-    -- go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
     go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
 bytecompile :: MonadFD4 m => FilePath -> m ()
@@ -120,8 +119,8 @@ runVM f = do
   -- end <- getTime
   -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (end - init)
 
-closureConvert :: MonadFD4 m => FilePath -> m ()
-closureConvert f = do
+compileC :: MonadFD4 m => FilePath -> m ()
+compileC f = do
     -- podríamos unificarlo con bytecompile
     -- init <- getTime
     decls <- loadFile f
@@ -215,6 +214,10 @@ handleDeclaration d = do
       Left e@(C.Decl p x tm) -> returnUnit debugging e CEK.eval
       Right e@(C.Decl p x ty) -> addTypeDecl e
     Bytecompile -> case elaborated of
+      Left e@(C.Decl p x tm) -> do  tt <- tcDecl (C.Decl p x tm)
+                                    addTermDecl tt
+      Right e@(C.Decl p x ty) -> addTypeDecl e
+    CC -> case elaborated of
       Left e@(C.Decl p x tm) -> do  tt <- tcDecl (C.Decl p x tm)
                                     addTermDecl tt
       Right e@(C.Decl p x ty) -> addTypeDecl e

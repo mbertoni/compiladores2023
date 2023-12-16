@@ -53,13 +53,13 @@ parseMode :: Parser (Mode, Bool)
 parseMode =
   (,)
     <$> ( flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
-            <|> flag' InteractiveCEK ( long "icek" <> short 'k' <> help "Ejecutar de forma interactiva en la CEK")
+            <|> flag Interactive Interactive  ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
+            <|> flag' InteractiveCEK          ( long "icek" <> short 'k' <> help "Ejecutar de forma interactiva en la CEK")
             <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
-            <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
-            <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
-            <|> flag Eval Eval (long "eval" <> short 'e' <> help "Evaluar un programa")
-            <|> flag CEK CEK (long "cek" <> short 'k' <> help "Evaluar un programa con la CEK")
-            <|> flag' CC  (long "cc" <> short 'c' <> help "Compilar a código C") 
+            <|> flag' RunVM       (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
+            <|> flag Eval Eval    (long "eval" <> short 'e' <> help "Evaluar un programa")
+            <|> flag CEK CEK      (long "cek" <> short 'k' <> help "Evaluar un programa con la CEK")
+            <|> flag' CC          (long "cc" <> short 'c' <> help "Compilar a código C") 
         )
     -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonización")
     -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
@@ -88,12 +88,12 @@ main = execParser opts >>= go
         )
 
     go :: (Mode, Bool, [FilePath]) -> IO ()
-    go (Interactive, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
-    -- go (InteractiveCEK, opt, files)  = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
-    go (Bytecompile, opt, files)  = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
-    go (CC, opt, files)           = runOrFail (Conf opt CC)           $ mapM_ compileC files
-    go (RunVM, opt, files)        = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
-    go (m, opt, files)            = runOrFail (Conf opt m)            $ mapM_ compileFile files
+    go (Interactive, opt, files)    = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
+    go (InteractiveCEK, opt, files) = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
+    go (Bytecompile, opt, files)    = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
+    go (CC, opt, files)             = runOrFail (Conf opt CC)           $ mapM_ compileC files
+    go (RunVM, opt, files)          = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
+    go (m, opt, files)              = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
 compile :: MonadFD4 m => FilePath -> m ()
 compile f = do -- Debería unificar Bytecompile y CC
@@ -144,9 +144,9 @@ compileC f = do
     decls <- loadFile f
     mapM_ handleDeclaration decls
     gdecls <- reverse <$> gets termEnvironment
-    let gNames = map (\d -> d.name) gdecls
-    let gdeclReplaced = map (global2free gNames) gdecls
-    let code = (ir2C . IrDecls . runCC) gdeclReplaced
+    -- let gNames = map (\d -> d.name) gdecls
+    -- let gdeclReplaced = map (global2free gNames) gdecls
+    let code = (ir2C . IrDecls . runCC) gdecls -- gdeclReplaced
     let newFile = dropExtension f ++ ".c"
     printFD4 code
     liftIO $ ccWrite code newFile

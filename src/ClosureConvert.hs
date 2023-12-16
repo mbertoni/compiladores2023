@@ -60,9 +60,9 @@ convertTerm (App (_, fty) f x) = do
   let irCall = IrCall clos0 args (convertTy fty)
   return $ IrLet "func" IrClo ccF irCall
 
-convertTerm (Let _ xn xty alias (Sc1 bdy)) = do
+convertTerm (Let _ xn xty alias sc@(Sc1 bdy)) = do
   decl <- convertTerm alias
-  scp <- convertTerm bdy
+  scp <- convertTerm (open xn sc)
   return $ IrLet xn (convertTy xty) decl scp
 
 convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do

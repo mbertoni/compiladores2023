@@ -18,11 +18,12 @@ EXTRAFLAGS	:=
 
 # Las reglas a chequear. Se puede deshabilitar toda una familia de tests
 # comentando una de estas líneas.
-CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
-CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
-CHECK	+= $(patsubst %.fd4,%.bc32,$(TESTS))
-CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
-CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
+# CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
+# CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
+# CHECK	+= $(patsubst %.fd4,%.bc32,$(TESTS))
+CHECK	+= $(patsubst %.fd4,%.c,$(TESTS))
+# CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
+# CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_opt,$(TESTS))
 
@@ -54,6 +55,10 @@ endif
 # La _única_ salida que se acepta es la del --eval. Todos los demás
 # evaluadores/backends deben coincidir.
 accept: $(patsubst %,%.accept,$(TESTS))
+
+# Probando closureConvert
+%.c: %.fd4 $(EXE)
+	$(Q)$(EXE) $(EXTRAFLAGS) --cc $< > /dev/null
 
 # La otra salida esperada es la de las optimizaciones.
 # accept: $(patsubst %,%.accept_opt,$(TESTS))
@@ -140,5 +145,6 @@ accept: $(patsubst %,%.accept,$(TESTS))
 .SECONDARY: $(patsubst %,%.actual_out_eval_opt,$(TESTS))
 .SECONDARY: $(patsubst %,%.actual_opt_out,$(TESTS))
 .SECONDARY: $(patsubst %.fd4,%.bc32,$(TESTS))
+.SECONDARY: $(patsubst %.fd4,%.c,$(TESTS))
 
 .PHONY: test_all accept

@@ -34,8 +34,8 @@ convertTy (Named _) = abort "error"
 convertTy Unit = abort "error"
 
 convertTerm :: TTerm -> StateT Int (Writer [IrDecl]) Ir
-convertTerm (Var _ (Bound i)) = abort "CC-Unimplemented -> Bound Variable"
-convertTerm (Var _ (Free n)) = abort "Free Variable"
+convertTerm (Var _ (Bound i)) = abort "CC -> Bound Variable"
+convertTerm (Var _ (Free n)) = return $ IrVar n
 convertTerm (Var _ (Global n)) = return $ IrGlobal n
 convertTerm (Lit _ c) = return $ IrConst c
 convertTerm (BOp _ op t1 t2) = do

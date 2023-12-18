@@ -87,7 +87,7 @@ convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do
   let funDecl = IrFun funName xTy [(closName, IrClo), (xName, IrInt)] convertedBody
   tell [funDecl]
   let freeNames = map IrVar (map fst freeVarsInBody)
-  return $ MkClosure closName freeNames
+  return $ MkClosure funName freeNames
 
 
 convertTerm (Fix i fn fty xn xty sc@(Sc2 bdy)) = do 

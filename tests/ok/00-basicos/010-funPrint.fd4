@@ -1,0 +1,2 @@
+let (funPrint:Nat) = fun (n:Nat) -> print "n = " n
+let res:Nat = funPrint 4

@@ -54,23 +54,24 @@ convertTerm (IfZ _ c t e) = do
   return $ IrIfZ ccC ccT ccE
 convertTerm (Pnt _ s t) = do
   ccT <- convertTerm t
-  return $ IrPrint (show s) ccT
+  pntName <- freshName "print"
+  return $ IrLet pntName IrInt ccT (IrPrint s.unS (IrVar pntName))
 convertTerm (App (_, fty) f x) = do
   ccF <- convertTerm f
   ccX <- convertTerm x
   fName <- freshName "appFun"
-  let clos0 = IrAccess ccF IrClo 0
+  let clos0 = IrAccess (IrVar fName) IrClo 0
   -- el IrClo hace referencia al primer elemento de ccf
   -- o hace referencia al ccf[0] ??
-  let args = [ccF, ccX]
+  let args = [IrVar fName, ccX]
   let irCall = IrCall clos0 args (convertTy fty)
   return $ IrLet fName IrClo ccF irCall
 
 convertTerm (Let _ xn xty alias sc@(Sc1 bdy)) = do
   xName <- freshName xn
   decl <- convertTerm alias
-  scp <- convertTerm (open xName sc)
-  return $ IrLet xName (convertTy xty) decl scp
+  scp <- convertTerm (open xn sc)
+  return $ IrLet xn (convertTy xty) decl scp
 
 convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do
   let xTy = convertTy xty
@@ -83,8 +84,8 @@ convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do
   -- deberíamos reemplazar en convertedBody las variables libres por el valor 
   -- <supongo que con IrAccess>
   -- let replaced = replaceFrees freeVarsInBody convertedBody
-  let funDecl = IrFun funName xTy [(closName, IrClo), (xn, IrInt)] convertedBody
-  -- tell funDecl
+  let funDecl = IrFun funName xTy [(closName, IrClo), (xName, IrInt)] convertedBody
+  tell [funDecl]
   let freeNames = map IrVar (map fst freeVarsInBody)
   return $ MkClosure closName freeNames
 

@@ -24,6 +24,11 @@ convertDecl d = do
     i@(IrBinaryOp bop ir1 ir2) -> IrVal d.name (convertTy $ getTy d.body) i
     _ -> IrVal d.name (convertTy $ getTy d.body) ir
 
+freshName :: String -> StateT Int (Writer [IrDecl]) String
+freshName prefix = do
+    fr <- get
+    put (fr+1)
+    return (prefix ++ "_" ++  show fr)
 
 
 convertTy :: Ty -> IrTy
@@ -53,26 +58,27 @@ convertTerm (Pnt _ s t) = do
 convertTerm (App (_, fty) f x) = do
   ccF <- convertTerm f
   ccX <- convertTerm x
+  fName <- freshName "appFun"
   let clos0 = IrAccess ccF IrClo 0
   -- el IrClo hace referencia al primer elemento de ccf
   -- o hace referencia al ccf[0] ??
   let args = [ccF, ccX]
   let irCall = IrCall clos0 args (convertTy fty)
-  return $ IrLet "func" IrClo ccF irCall
+  return $ IrLet fName IrClo ccF irCall
 
 convertTerm (Let _ xn xty alias sc@(Sc1 bdy)) = do
+  xName <- freshName xn
   decl <- convertTerm alias
-  scp <- convertTerm (open xn sc)
-  return $ IrLet xn (convertTy xty) decl scp
+  scp <- convertTerm (open xName sc)
+  return $ IrLet xName (convertTy xty) decl scp
 
 convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do
-  frx <- get
-  put $ frx + 1
   let xTy = convertTy xty
-  let funName = "__f" ++ show frx
-  let closName = funName ++ "_closure"
+  funName <- freshName $ "fun"
+  closName <- freshName $ funName ++ "_closure"
+  xName <- freshName xn
   let freeVarsInBody = freeVarsWithTheirType bdy -- ¿sale sólo la x? ¿debo tener algo?
-  let openned = open xn sc
+  let openned = open xName sc -- ¿deberíamos usar xName o xn?
   convertedBody <- convertTerm openned
   -- deberíamos reemplazar en convertedBody las variables libres por el valor 
   -- <supongo que con IrAccess>
@@ -84,15 +90,11 @@ convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do
 
 
 convertTerm (Fix i fn fty xn xty sc@(Sc2 bdy)) = do 
-  frf <- get
-  put $ frf + 1
   let funTy = convertTy fty
-  let funName = "__fix" ++ show frf
-  let closName = funName ++ "_closure"
-  frx <- get
-  put $ frx + 1
   let xTy = convertTy xty
-  let xName = "__x" ++ show frx
+  funName <- freshName $ "fun_" ++ show fn
+  closName <- freshName $ funName ++ "_closure"
+  xName <- freshName xn
   
   let freeVarsInBody = freeVarsWithTheirType bdy -- ¿sale sólo la x? ¿debo tener algo?
   

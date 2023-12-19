@@ -20,8 +20,8 @@ convertDecl :: Decl TTerm -> M [IrDecl] ()
 convertDecl d = do
   ir <- convertTerm d.body
   tell . pure $ case ir of
-    MkClosure nom verdura -> IrFun d.name (convertTy $ getTy d.body) [] ir
-    i@(IrBinaryOp bop ir1 ir2) -> IrVal d.name (convertTy $ getTy d.body) i
+    -- MkClosure nom verdura -> IrFun d.name (convertTy $ getTy d.body) [] ir
+    -- i@(IrBinaryOp bop ir1 ir2) -> IrVal d.name (convertTy $ getTy d.body) i
     _ -> IrVal d.name (convertTy $ getTy d.body) ir
 
 freshName :: String -> StateT Int (Writer [IrDecl]) String
@@ -29,6 +29,17 @@ freshName prefix = do
     fr <- get
     put (fr+1)
     return (prefix ++ "_" ++  show fr)
+
+replaceFrees :: [(Name, Ty)] -> Ir -> Name -> Ir
+replaceFrees frees tt closName = go (zip [1..] frees) tt closName 
+  where 
+    go :: [(Int, (Name, Ty))] -> Ir -> Name -> Ir
+    go [] t _ = t
+    go ((i,(freeName,freeTy)):fs) t cName = IrLet freeName convertedFreeType freeAlias freeBody
+      where convertedFreeType = (convertTy freeTy)
+            freeAlias = IrAccess (IrVar cName) convertedFreeType i
+            freeBody = go fs t cName
+
 
 
 convertTy :: Ty -> IrTy
@@ -64,11 +75,10 @@ convertTerm (App (_, fty) f x) = do
   -- el IrClo hace referencia al primer elemento de ccf
   -- o hace referencia al ccf[0] ??
   let args = [IrVar fName, ccX]
-  let irCall = IrCall clos0 args (convertTy fty)
+  let irCall = IrCall clos0 args IrInt -- (convertTy fty)
   return $ IrLet fName IrClo ccF irCall
 
 convertTerm (Let _ xn xty alias sc@(Sc1 bdy)) = do
-  xName <- freshName xn
   decl <- convertTerm alias
   scp <- convertTerm (open xn sc)
   return $ IrLet xn (convertTy xty) decl scp
@@ -83,8 +93,8 @@ convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do
   convertedBody <- convertTerm openned
   -- deberíamos reemplazar en convertedBody las variables libres por el valor 
   -- <supongo que con IrAccess>
-  -- let replaced = replaceFrees freeVarsInBody convertedBody
-  let funDecl = IrFun funName xTy [(closName, IrClo), (xName, IrInt)] convertedBody
+  let replaced = replaceFrees freeVarsInBody convertedBody closName
+  let funDecl = IrFun funName xTy [(closName, IrClo), (xName, IrInt)] replaced
   tell [funDecl]
   let freeNames = map IrVar (map fst freeVarsInBody)
   return $ MkClosure funName freeNames
@@ -104,9 +114,9 @@ convertTerm (Fix i fn fty xn xty sc@(Sc2 bdy)) = do
 
   -- deberíamos reemplazar en convertedBody las variables libres por el valor 
   -- <supongo que con IrAccess>
-  -- let replaced = replaceFrees freeVarsInBody convertedBody
+  let replaced = replaceFrees freeVarsInBody convertedBody closName
 
-  let funDecl = IrFun funName funTy [(closName, IrClo), (xn, xTy)] convertedBody
+  let funDecl = IrFun funName funTy [(closName, IrClo), (xn, xTy)] replaced
   -- tell funDecl
   let freeNames = map IrVar (map fst freeVarsInBody)
   return $ MkClosure funName freeNames

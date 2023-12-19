@@ -6,3 +6,6 @@ Teoría/*
 .history
 .DS_Store
 **/*.bc32
+**/*.exe
+**/*.fd4.actual_out*
+**/*.fd4.check_*

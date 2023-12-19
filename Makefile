@@ -15,7 +15,7 @@ interp:
 	cabal repl
 
 run: build
-	 cabal run
+	cabal run
 
 include testing.mk
 test: build vm

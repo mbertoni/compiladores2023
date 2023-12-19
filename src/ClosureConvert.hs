@@ -91,8 +91,6 @@ convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do
   let freeVarsInBody = freeVarsWithTheirType bdy -- ¿sale sólo la x? ¿debo tener algo?
   let openned = open xName sc -- ¿deberíamos usar xName o xn?
   convertedBody <- convertTerm openned
-  -- deberíamos reemplazar en convertedBody las variables libres por el valor 
-  -- <supongo que con IrAccess>
   let replaced = replaceFrees freeVarsInBody convertedBody closName
   let funDecl = IrFun funName xTy [(closName, IrClo), (xName, IrInt)] replaced
   tell [funDecl]
@@ -106,17 +104,11 @@ convertTerm (Fix i fn fty xn xty sc@(Sc2 bdy)) = do
   funName <- freshName $ "fun_" ++ show fn
   closName <- freshName $ funName ++ "_closure"
   xName <- freshName xn
-  
   let freeVarsInBody = freeVarsWithTheirType bdy -- ¿sale sólo la x? ¿debo tener algo?
-  
   let openned = open2 fn xn sc
   convertedBody <- convertTerm openned
-
-  -- deberíamos reemplazar en convertedBody las variables libres por el valor 
-  -- <supongo que con IrAccess>
   let replaced = replaceFrees freeVarsInBody convertedBody closName
-
-  let funDecl = IrFun funName funTy [(closName, IrClo), (xn, xTy)] replaced
-  -- tell funDecl
+  let funDecl = IrFun funName funTy [(closName, IrClo), (xName, IrInt)] replaced
+  tell [funDecl]
   let freeNames = map IrVar (map fst freeVarsInBody)
   return $ MkClosure funName freeNames

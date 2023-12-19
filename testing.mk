@@ -21,11 +21,13 @@ EXTRAFLAGS	:=
 # CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
 # CHECK	+= $(patsubst %.fd4,%.bc32,$(TESTS))
-CHECK	+= $(patsubst %.fd4,%.c,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_opt,$(TESTS))
+CHECK	+= $(patsubst %.fd4,%.c,$(TESTS))
+CHECK	+= $(patsubst %,%.check_exe,$(TESTS))
+CHECK	+= $(patsubst %.fd4,%.exe,$(TESTS))
 
 # Ejemplo: así se puede apagar un test en particular.
 # CHECK	:= $(filter-out tests/correctos/grande.fd4.check_bc32,$(CHECK))
@@ -55,10 +57,6 @@ endif
 # La _única_ salida que se acepta es la del --eval. Todos los demás
 # evaluadores/backends deben coincidir.
 accept: $(patsubst %,%.accept,$(TESTS))
-
-# Probando closureConvert
-%.c: %.fd4 $(EXE)
-	$(Q)$(EXE) $(EXTRAFLAGS) --cc $< > /dev/null
 
 # La otra salida esperada es la de las optimizaciones.
 # accept: $(patsubst %,%.accept_opt,$(TESTS))
@@ -136,6 +134,22 @@ accept: $(patsubst %,%.accept,$(TESTS))
 	$(Q)touch $@
 	@echo "OK	EVALOPT	$(patsubst %.out,%,$<)"
 
+# Probando closureConvert
+%.c: %.fd4 $(EXE)
+	$(Q)$(EXE) $(EXTRAFLAGS) --cc $< > /dev/null
+
+%.exe: %.c runtime.c
+	gcc $^ -lgc -o $@
+
+%.fd4.actual_out_exe: %.exe
+	$(Q)$< > $@
+
+%.check_exe: %.out %.actual_out_exe
+	$(Q)diff -u $^
+	$(Q)touch $@
+	@echo "OK	EVALOPT	$(patsubst %.out,%,$<)"
+
+
 # Estas directivas indican que NO se borren los archivos intermedios,
 # así podemos examinarlos, particularmente cuando algo no anda.
 .SECONDARY: $(patsubst %,%.actual_out_eval,$(TESTS))
@@ -144,7 +158,9 @@ accept: $(patsubst %,%.accept,$(TESTS))
 .SECONDARY: $(patsubst %,%.actual_out_bc32_h,$(TESTS))
 .SECONDARY: $(patsubst %,%.actual_out_eval_opt,$(TESTS))
 .SECONDARY: $(patsubst %,%.actual_opt_out,$(TESTS))
+.SECONDARY: $(patsubst %,%.actual_out_exe,$(TESTS))
 .SECONDARY: $(patsubst %.fd4,%.bc32,$(TESTS))
 .SECONDARY: $(patsubst %.fd4,%.c,$(TESTS))
+.SECONDARY: $(patsubst %.fd4,%.exe,$(TESTS))
 
 .PHONY: test_all accept

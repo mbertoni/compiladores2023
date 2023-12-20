@@ -55,9 +55,12 @@ convertTerm (Var _ (Free n)) = return $ IrVar n
 convertTerm (Var _ (Global n)) = return $ IrGlobal n
 convertTerm (Lit _ c) = return $ IrConst c
 convertTerm (BOp _ op t1 t2) = do
+  x1 <- freshName "x1"
+  x2 <- freshName "x2"
   ccT1 <- convertTerm t1
   ccT2 <- convertTerm t2
-  return $ IrBinaryOp op ccT1 ccT2
+  let finalTerm = IrBinaryOp op (IrVar x1) (IrVar x2)
+  return $ IrLet x1 IrInt ccT1 (IrLet x2 IrInt ccT2 $ finalTerm)
 convertTerm (IfZ _ c t e) = do
   ccC <- convertTerm c
   ccT <- convertTerm t

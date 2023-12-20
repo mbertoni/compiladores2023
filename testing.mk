@@ -31,7 +31,7 @@ CHECK	+= $(patsubst %.fd4,%.exe,$(TESTS))
 
 # Ejemplo: así se puede apagar un test en particular.
 # CHECK	:= $(filter-out tests/correctos/grande.fd4.check_bc32,$(CHECK))
-CHECK	:= $(filter-out tests/ok/10-sugar/135-factorial.fd4.check_exe,$(CHECK))
+# CHECK	:= $(filter-out tests/ok/10-sugar/135-factorial.fd4.check_exe,$(CHECK))
 
 # Esta regla corre todos los tests (por sus dependencias) y luego
 # imprime un mensaje.

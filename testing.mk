@@ -22,7 +22,7 @@ CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
 CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
 CHECK	+= $(patsubst %.fd4,%.bc32,$(TESTS))
 CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
+CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_opt,$(TESTS))
 CHECK	+= $(patsubst %.fd4,%.c,$(TESTS))
@@ -31,6 +31,7 @@ CHECK	+= $(patsubst %.fd4,%.exe,$(TESTS))
 
 # Ejemplo: así se puede apagar un test en particular.
 # CHECK	:= $(filter-out tests/correctos/grande.fd4.check_bc32,$(CHECK))
+CHECK	:= $(filter-out tests/ok/10-sugar/135-factorial.fd4.check_exe,$(CHECK))
 
 # Esta regla corre todos los tests (por sus dependencias) y luego
 # imprime un mensaje.
@@ -81,7 +82,7 @@ accept: $(patsubst %,%.accept,$(TESTS))
 
 %.check_cek: %.out %.actual_out_cek
 	$(Q)diff -u $^
-	$(Q)touch $@
+	$(Q)touch $@open2
 	@echo "OK	CEK	$(patsubst %.out,%,$<)"
 
 

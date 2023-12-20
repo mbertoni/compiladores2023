@@ -72,8 +72,6 @@ convertTerm (App (_, fty) f x) = do
   ccX <- convertTerm x
   fName <- freshName "appFun"
   let clos0 = IrAccess (IrVar fName) IrClo 0
-  -- el IrClo hace referencia al primer elemento de ccf
-  -- o hace referencia al ccf[0] ??
   let args = [IrVar fName, ccX]
   let irCall = IrCall clos0 args IrInt -- (convertTy fty)
   return $ IrLet fName IrClo ccF irCall
@@ -100,12 +98,11 @@ convertTerm (Lam pos xn xty sc@(Sc1 bdy)) = do
 
 convertTerm (Fix i fn fty xn xty sc@(Sc2 bdy)) = do 
   let funTy = convertTy fty
-  let xTy = convertTy xty
   funName <- freshName $ "fun_" ++ show fn
-  closName <- freshName $ funName ++ "_closure"
   xName <- freshName xn
+  closName <- freshName $ funName ++ "_closure"
   let freeVarsInBody = freeVarsWithTheirType bdy -- ¿sale sólo la x? ¿debo tener algo?
-  let openned = open2 fn xn sc
+  let openned = open2 closName xName sc
   convertedBody <- convertTerm openned
   let replaced = replaceFrees freeVarsInBody convertedBody closName
   let funDecl = IrFun funName funTy [(closName, IrClo), (xName, IrInt)] replaced

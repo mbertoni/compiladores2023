@@ -90,8 +90,8 @@ main = execParser opts >>= go
     go :: (Mode, Bool, [FilePath]) -> IO ()
     go (Interactive, opt, files)    = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     go (InteractiveCEK, opt, files) = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
-    go (Bytecompile, opt, files)    = runOrFail (Conf opt Bytecompile)  $ mapM_ bytecompile files
-    go (CC, opt, files)             = runOrFail (Conf opt CC)           $ mapM_ compileC files
+    go (Bytecompile, opt, files)    = runOrFail (Conf opt Bytecompile)  $ mapM_ compile files
+    go (CC, opt, files)             = runOrFail (Conf opt CC)           $ mapM_ compile files
     go (RunVM, opt, files)          = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
     go (m, opt, files)              = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
@@ -120,16 +120,16 @@ compile f = do -- Debería unificar Bytecompile y CC
     --                  show m ++ ": " ++ show (end - init)
 
 
-bytecompile :: MonadFD4 m => FilePath -> m ()
-bytecompile f = do
-    decls <- loadFile f
-    mapM_ handleDeclaration decls
-    gdecls <- reverse <$> gets termEnvironment
-    let gNames = map (\d -> d.name) gdecls
-    let gdeclReplaced = map (global2free gNames) gdecls
-    let bc = byteCompileModule gdeclReplaced
-    let newFile = dropExtension f ++ ".bc32"
-    liftIO $ bcWrite bc newFile
+-- bytecompile :: MonadFD4 m => FilePath -> m ()
+-- bytecompile f = do
+--     decls <- loadFile f
+--     mapM_ handleDeclaration decls
+--     gdecls <- reverse <$> gets termEnvironment
+--     let gNames = map (\d -> d.name) gdecls
+--     let gdeclReplaced = map (global2free gNames) gdecls
+--     let bc = byteCompileModule gdeclReplaced
+--     let newFile = dropExtension f ++ ".bc32"
+--     liftIO $ bcWrite bc newFile
 
 runVM :: MonadFD4 m => FilePath -> m ()
 runVM f = do
@@ -139,17 +139,17 @@ runVM f = do
   -- end <- getTime
   -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (end - init)
 
-compileC :: MonadFD4 m => FilePath -> m ()
-compileC f = do
-    decls <- loadFile f
-    mapM_ handleDeclaration decls
-    gdecls <- reverse <$> gets termEnvironment
-    -- let gNames = map (\d -> d.name) gdecls
-    -- let gdeclReplaced = map (global2free gNames) gdecls
-    let code = (ir2C . IrDecls . runCC) gdecls -- gdeclReplaced
-    let newFile = dropExtension f ++ ".c"
-    printFD4 code
-    liftIO $ ccWrite code newFile
+-- compileC :: MonadFD4 m => FilePath -> m ()
+-- compileC f = do
+--     decls <- loadFile f
+--     mapM_ handleDeclaration decls
+--     gdecls <- reverse <$> gets termEnvironment
+--     -- let gNames = map (\d -> d.name) gdecls
+--     -- let gdeclReplaced = map (global2free gNames) gdecls
+--     let code = (ir2C . IrDecls . runCC) gdecls -- gdeclReplaced
+--     let newFile = dropExtension f ++ ".c"
+--     printFD4 code
+--     liftIO $ ccWrite code newFile
 
 runOrFail :: Conf -> FD4 a -> IO a
 runOrFail c m = do

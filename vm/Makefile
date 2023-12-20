@@ -1,8 +1,8 @@
 all: macc
 
 %.o: CFLAGS+= -Wall -pedantic
-macc: macc.o # LDLIBS +=-lgc
-	gcc $< -lgc
+macc: LDLIBS +=-lgc
+	
 
 clean:
 	rm -f *.o macc

@@ -12,7 +12,8 @@ optimize = go fuel where
     go n tt = t3 
         where   t1 = constantFolding tt
                 t2 = constantPropagation t1
-                t3 = go (n-1) t2
+                t3 = constReplacing t2
+                t4 = go (n-1) t3
 
 constantFolding :: TTerm -> TTerm
 constantFolding = visit go
@@ -46,3 +47,26 @@ constantPropagation = visit go
                                 where substBody = visit go body
                 where alias' = visit go alias
             go term = visit go term
+
+
+constReplacing :: TTerm -> TTerm
+constReplacing = visit go
+    where
+        go :: TTerm -> TTerm
+        go (App i (Lam _ _ _ scope) l@(Lit _ _)) = constReplacing $ subst l scope
+        go (App i (Lam _ nm ty scope) t) = constReplacing $ (Let i nm ty (go t) scope)
+        go t = t
+
+-- Deberíamos tenerlo en cuenta para contant folding y para subexp elimination <si la implementamos>
+isPure :: TTerm -> Bool
+isPure (Lit _ _) = True
+isPure (Pnt _ _ _) = False
+isPure (Var _ (Free _)) = True
+isPure (Var _ (Bound _)) = True
+isPure (Var _ (Global _)) = False
+isPure (Lam _ _ _ (Sc1 t)) = isPure t
+isPure (App _ f x) = isPure f && isPure x
+isPure (Fix _ _ _ _ _ (Sc2 t)) = isPure t
+isPure (BOp _ _ x y) = isPure x && isPure y
+isPure (IfZ _ c t e) = isPure c && isPure t && isPure e
+isPure (Let _ _ _ alias (Sc1 bdy)) = isPure alias && isPure bdy

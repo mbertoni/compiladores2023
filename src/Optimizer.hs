@@ -57,6 +57,15 @@ constReplacing = visit go
         go (App i (Lam _ nm ty scope) t) = constReplacing $ (Let i nm ty (go t) scope)
         go t = t
 
+inLine :: TTerm -> TTerm
+inLine = visit go
+    where
+        go :: TTerm -> TTerm
+        go t@(Let i x xty alias scope@(Sc1 body)) = if isSimple then go $ subst alias scope else t
+            where isSimple = False -- ver cómo calculamos esto
+        go t = t
+
+
 -- Deberíamos tenerlo en cuenta para contant folding y para subexp elimination <si la implementamos>
 isPure :: TTerm -> Bool
 isPure (Lit _ _) = True

@@ -1,6 +1,6 @@
-module Optimizer where
+module Optimizer (optimize, hasEffects) where
 
-import Core
+import Core 
 import Subst
 
 
@@ -79,3 +79,16 @@ isPure (Fix _ _ _ _ _ (Sc2 t)) = isPure t
 isPure (BOp _ _ x y) = isPure x && isPure y
 isPure (IfZ _ c t e) = isPure c && isPure t && isPure e
 isPure (Let _ _ _ alias (Sc1 bdy)) = isPure alias && isPure bdy
+
+
+
+hasEffects :: TTerm -> Bool
+hasEffects (Var _ _) = False
+hasEffects (Lit _ _) = False
+hasEffects (Lam _ n _ bdy) = hasEffects (open n bdy)
+hasEffects (App _ f x) = hasEffects f || hasEffects x
+hasEffects (Pnt _ _ _ ) = True
+hasEffects (BOp i op x y) = hasEffects x || hasEffects y
+hasEffects (Fix _ f _ x _ bdy) = hasEffects (open2 f x bdy)
+hasEffects (IfZ _ c t f) = hasEffects c || hasEffects t || hasEffects f
+hasEffects (Let _ x xty alias bdy) = hasEffects alias || hasEffects (open x bdy)

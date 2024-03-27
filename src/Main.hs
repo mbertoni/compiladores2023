@@ -43,7 +43,7 @@ import System.FilePath (dropExtension)
 import IR
 import C ( ir2C )
 import ClosureConvert ( runCC )
--- import Optimizer
+import Optimizer as Opt
 
 prompt :: String
 prompt = "FD4> "
@@ -64,10 +64,10 @@ parseMode =
     -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonización")
     -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
     -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
-    <*> pure False
+    -- <*> pure False
 
 -- reemplazar por la siguiente línea para habilitar opción
--- <*> flag False True (long "optimize" <> short 'o' <> help "Optimizar código")
+    <*> flag False True (long "optimize" <> short 'o' <> help "Optimizar código")
 
 -- | Parser de opciones general, consiste de un modo y una lista de archivos a procesar
 parseArgs :: Parser (Mode, Bool, [FilePath])
@@ -183,6 +183,9 @@ compileFile f = do
   when i $ printFD4 ("Abriendo " ++ f ++ "...")
   declarations <- loadFile f
   mapM_ handleDeclaration declarations
+  handleDecl <- reverse <$> gets termEnvironment
+  mustOptimize <- getOpt
+  optDecls <- if mustOptimize then deadCodeElimination handleDecl else return handleDecl
   setInter i
 
 parseIO :: (MonadFD4 m) => String -> P a -> String -> m a
@@ -212,6 +215,10 @@ handleDeclaration d = do
       Left e@(C.Decl p x tm) -> do  tt <- tcDecl (C.Decl p x tm)
                                     addTermDecl tt
       Right e@(C.Decl p x ty) -> addTypeDecl e
+    {-Bytecompile8 -> case elaborated of
+      Left e@(C.Decl p x tm) -> do  tt <- tcDecl (C.Decl p x tm)
+                                    addTermDecl tt
+      Right e@(C.Decl p x ty) -> addTypeDecl e-}
     CC -> case elaborated of
       Left e@(C.Decl p x tm) -> do  tt <- tcDecl (C.Decl p x tm)
                                     addTermDecl tt
@@ -244,9 +251,10 @@ evalAndAdd debugging d@(C.Decl p x tm) f =  do
           when debugging $ printFD4 "\nEvaling: "
           te <- f (C.body tt)
           when debugging $ printFD4 ("\nAfter Evaling: " ++ show te)
-          -- opt <- getOpt
-          -- td' <- if opt then optimize td else td
-          -- Control.Monad.ExceptT.when debugging $ printFD4 ("\nAfter Optimizing: " ++ show te)
+          addTermDecl (C.Decl p x te)
+          mustOpt <- getOpt
+          let optTerm = if mustOpt then Opt.optimize te else te
+          when mustOpt $ printFD4 ("\nAfter Optimizing: " ++ show optTerm)
           addTermDecl (C.Decl p x te)
           return $ C.Decl p x te
 returnUnit :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m ()
@@ -395,3 +403,14 @@ typeCheckPhrase x = do
   tt <- tc t' (globalTypedEnvironment s)
   let ty = C.getTy tt
   printFD4 (ppTy ty)
+
+deadCodeElimination :: MonadFD4 m => [C.Decl C.TTerm] -> m [C.Decl C.TTerm]
+deadCodeElimination [] = return []
+deadCodeElimination ds = do 
+  -- agrego a una lista las declaraciones referenciadas
+  -- mapM_ addReferences 
+  return noDeadDecls
+  where 
+    bodyHasEffect = \decl -> hasEffects decl.body -- El código con efectos no podemos fletarlo, incluso aunque no se use.
+    noDeadDecls = filter (\d -> hasEffects d.body || isReferred d.body) ds -- Dejo sólo las declaraciones referenciadas o con efectos
+

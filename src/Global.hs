@@ -25,6 +25,8 @@ data GlEnv = GlEnv
     typeContext :: [Decl Ty],
     -- | Entorno con declaraciones globales ya tipadas
     termEnvironment :: [Decl TTerm],
+    -- | Variables utilizadas para el deadCode
+    usedVariables :: [Decl TTerm],
     -- | Contador de variables fresh
     fresh :: Int
   }
@@ -58,4 +60,4 @@ data Conf = Conf
 
 -- | Valor del estado inicial
 initialEnv :: GlEnv
-initialEnv = GlEnv False "" 0 0 [] [] 0
+initialEnv = GlEnv False "" 0 0 [] [] [] 0

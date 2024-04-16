@@ -1,8 +1,8 @@
-module Optimizer (optimize, hasEffects) where
+module Optimizer (optimize, hasEffects, deadCodeElimination, isUsed, addReferences) where
 
 import Core 
 import Subst
-
+import MonadFD4
 
 optimize :: TTerm -> TTerm
 optimize = go fuel where
@@ -88,7 +88,52 @@ hasEffects (Lit _ _) = False
 hasEffects (Lam _ n _ bdy) = hasEffects (open n bdy)
 hasEffects (App _ f x) = hasEffects f || hasEffects x
 hasEffects (Pnt _ _ _ ) = True
-hasEffects (BOp i op x y) = hasEffects x || hasEffects y
+hasEffects (BOp _ o x y) = hasEffects x || hasEffects y
 hasEffects (Fix _ f _ x _ bdy) = hasEffects (open2 f x bdy)
 hasEffects (IfZ _ c t f) = hasEffects c || hasEffects t || hasEffects f
 hasEffects (Let _ x xty alias bdy) = hasEffects alias || hasEffects (open x bdy)
+
+isUsed :: [Decl TTerm] -> TTerm -> Bool
+isUsed usedVariables tm = True
+
+addReferences :: MonadFD4 m => TTerm -> m [Decl TTerm]
+addReferences (Var _ (Global n)) = do
+  mtm <- lookupDecl n
+  case mtm of
+    Nothing -> failFD4 $ "Se eliminó una variable que era necesaria"
+    Just t -> return [Decl p n tm] -- Ver qué completar acá
+addReferences (Lam _ _ _ (Sc1 t)) = addReferences t
+addReferences (App _ f x) = do
+  r1 <- addReferences f
+  r2 <- addReferences x
+  return $ r1 ++ r2
+addReferences (Pnt _ _ t) = addReferences t
+addReferences (BOp _ _ t1 t2) = do
+  r1 <- addReferences t1
+  r2 <- addReferences t2
+  return $ r1 ++ r2
+addReferences (Fix _ _ _ _ _ (Sc2 t)) = addReferences t
+addReferences (IfZ _ c t f) = do
+  r1 <- addReferences c
+  r2 <- addReferences t
+  r3 <- addReferences f
+  return $ r1 ++ r2 ++ r3
+addReferences (Let _ _ _ alias (Sc1 bdy)) = do
+  r1 <- addReferences alias
+  r2 <- addReferences bdy
+  return $ r1 ++ r2
+addReferences _ = return []
+
+deadCodeElimination :: MonadFD4 m => [Decl TTerm] -> m [Decl TTerm]
+deadCodeElimination [] = return []
+deadCodeElimination ds = do 
+  -- agrego a una lista las declaraciones referenciadas
+  -- mapM_ addReferences 
+  used <- gets usedVariables
+  return noDeadDecls
+  where 
+    -- El código con efectos no podemos fletarlo, incluso aunque no se use.
+    -- bodyHasEffect = \decl -> hasEffects decl.body 
+    -- Dejo sólo las declaraciones referenciadas o con efectos
+    noDeadDecls = filter (\d -> (not hasEffects d.body) && (isUsed usedVariables d.body) ) ds 
+

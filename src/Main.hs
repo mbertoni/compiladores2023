@@ -403,14 +403,3 @@ typeCheckPhrase x = do
   tt <- tc t' (globalTypedEnvironment s)
   let ty = C.getTy tt
   printFD4 (ppTy ty)
-
-deadCodeElimination :: MonadFD4 m => [C.Decl C.TTerm] -> m [C.Decl C.TTerm]
-deadCodeElimination [] = return []
-deadCodeElimination ds = do 
-  -- agrego a una lista las declaraciones referenciadas
-  -- mapM_ addReferences 
-  return noDeadDecls
-  where 
-    bodyHasEffect = \decl -> hasEffects decl.body -- El código con efectos no podemos fletarlo, incluso aunque no se use.
-    noDeadDecls = filter (\d -> hasEffects d.body || isReferred d.body) ds -- Dejo sólo las declaraciones referenciadas o con efectos
-

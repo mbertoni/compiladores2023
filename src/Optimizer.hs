@@ -1,11 +1,12 @@
-module Optimizer (optimize, hasEffects, deadCodeElimination, isUsed, addReferences) where
+module Optimizer (opt, hasEffects, deadCodeElimination, isUsed, addReferences) where
 
 import Core 
 import Subst
 import MonadFD4
+import Global
 
-optimize :: TTerm -> TTerm
-optimize = go fuel where
+opt :: TTerm -> TTerm
+opt = go fuel where
     fuel = 10
     go:: Int -> TTerm -> TTerm 
     go 0 tt = tt
@@ -65,7 +66,6 @@ inLine = visit go
             where isSimple = False -- ver cómo calculamos esto
         go t = t
 
-
 -- Deberíamos tenerlo en cuenta para contant folding y para subexp elimination <si la implementamos>
 isPure :: TTerm -> Bool
 isPure (Lit _ _) = True
@@ -80,8 +80,6 @@ isPure (BOp _ _ x y) = isPure x && isPure y
 isPure (IfZ _ c t e) = isPure c && isPure t && isPure e
 isPure (Let _ _ _ alias (Sc1 bdy)) = isPure alias && isPure bdy
 
-
-
 hasEffects :: TTerm -> Bool
 hasEffects (Var _ _) = False
 hasEffects (Lit _ _) = False
@@ -93,15 +91,10 @@ hasEffects (Fix _ f _ x _ bdy) = hasEffects (open2 f x bdy)
 hasEffects (IfZ _ c t f) = hasEffects c || hasEffects t || hasEffects f
 hasEffects (Let _ x xty alias bdy) = hasEffects alias || hasEffects (open x bdy)
 
-isUsed :: [Decl TTerm] -> TTerm -> Bool
-isUsed usedVariables tm = True
-
 addReferences :: MonadFD4 m => TTerm -> m [Decl TTerm]
-addReferences (Var _ (Global n)) = do
-  mtm <- lookupDecl n
-  case mtm of
-    Nothing -> failFD4 $ "Se eliminó una variable que era necesaria"
-    Just t -> return [Decl p n tm] -- Ver qué completar acá
+addReferences t@(Var (i,ty) (Global n)) = do 
+  addReferencedVariable n
+  return [] -- Ver qué completar acá
 addReferences (Lam _ _ _ (Sc1 t)) = addReferences t
 addReferences (App _ f x) = do
   r1 <- addReferences f
@@ -122,18 +115,29 @@ addReferences (Let _ _ _ alias (Sc1 bdy)) = do
   r1 <- addReferences alias
   r2 <- addReferences bdy
   return $ r1 ++ r2
+{-  Lit   _       _
+    Var _ (Bound _)
+    Var _ (Free  _)
+-}
 addReferences _ = return []
 
 deadCodeElimination :: MonadFD4 m => [Decl TTerm] -> m [Decl TTerm]
 deadCodeElimination [] = return []
 deadCodeElimination ds = do 
-  -- agrego a una lista las declaraciones referenciadas
-  -- mapM_ addReferences 
-  used <- gets usedVariables
+  s <- get
+  let noDeadDecls = filter (\d -> ( not (mustBeFiltered d.body (s getUsedVariables)) )) ds 
   return noDeadDecls
-  where 
-    -- El código con efectos no podemos fletarlo, incluso aunque no se use.
-    -- bodyHasEffect = \decl -> hasEffects decl.body 
-    -- Dejo sólo las declaraciones referenciadas o con efectos
-    noDeadDecls = filter (\d -> (not hasEffects d.body) && (isUsed usedVariables d.body) ) ds 
+    
 
+isGlobalVar :: TTerm -> Bool
+isGlobalVar (Var (i,ty) (Global n)) = True
+isGlobalVar _ = False
+
+-- Devuelve True cuando es una variable global, no usada y sin efectos.
+-- El código con efectos no podemos fletarlo, incluso aunque no se use.
+mustBeFiltered :: TTerm -> [Name] -> Bool
+mustBeFiltered t referredVariables = isGlobalVar t && not (isUsed t referredVariables) && not (hasEffects t)
+
+isUsed :: TTerm -> [Name] -> Bool
+isUsed (Var _ (Global n)) referredVariables = elem n referredVariables
+isUsed _ _ = False

@@ -98,6 +98,9 @@ addTermDecl d = modify (\s -> s {termEnvironment = d : termEnvironment s, termDe
 addTypeDecl :: (MonadFD4 m) => Decl Ty -> m ()
 addTypeDecl d = modify (\s -> s {typeContext = d : typeContext s, typeDeclNumber = typeDeclNumber s + 1})
 
+addReferencedVariable :: (MonadFD4 m) => Name -> m()
+addReferencedVariable x = return () -- modify (\s -> s {typeContext = d : typeContext s, typeDeclNumber = typeDeclNumber s + 1})
+
 eraseLastFileDecls :: (MonadFD4 m) => m ()
 eraseLastFileDecls = do
   s <- get

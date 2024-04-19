@@ -253,7 +253,7 @@ evalAndAdd debugging d@(C.Decl p x tm) f =  do
           when debugging $ printFD4 ("\nAfter Evaling: " ++ show te)
           addTermDecl (C.Decl p x te)
           mustOpt <- getOpt
-          let optTerm = if mustOpt then Opt.optimize te else te
+          let optTerm = if mustOpt then Opt.opt te else te
           when mustOpt $ printFD4 ("\nAfter Optimizing: " ++ show optTerm)
           addTermDecl (C.Decl p x te)
           return $ C.Decl p x te

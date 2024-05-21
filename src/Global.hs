@@ -37,9 +37,6 @@ globalTypedEnvironment g = map (\(Decl _ n tt) -> (n, getTy tt)) g.termEnvironme
 globalTypeContext :: GlEnv -> [(Name, Ty)]
 globalTypeContext g = map (\(Decl _ n ty) -> (n, ty)) g.typeContext
 
-getUsedVariables :: GlEnv -> [Name]
-getUsedVariables g = g.usedVariables
-
 {-
  Tipo para representar las banderas disponibles en línea de comando.
 -}

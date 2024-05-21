@@ -128,7 +128,8 @@ getInfo (IfZ i _ _ _) = i
 getInfo (Let i _ _ _ _) = i
 getInfo (BOp i _ _ _) = i
 
-getTerm :: TTerm -> Term
+-- Podríamos probar de hacerlo con el visit <hay que sacar los tipos del visit>
+getTerm :: TTerm -> Term 
 getTerm (Var i v) = Var (fst i) v
 getTerm (Lit i l) = Lit (fst i) l
 getTerm (Lam i1 n t s) = Lam (fst i1) n t (ts2s s)
@@ -150,7 +151,7 @@ getTy = snd . getInfo
 getPos :: TTerm -> Pos
 getPos = fst . getInfo
 
--- visit :: (TTerm -> TTerm) -> TTerm -> TTerm
+visit :: (TTerm -> TTerm) -> TTerm -> TTerm
 visit g v@(Var _ _) = g v
 visit g l@(Lit _ _) = g l
 visit g (Lam i n ty (Sc1 t)) = g (Lam i n ty (Sc1 (visit g t)))

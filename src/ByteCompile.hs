@@ -228,6 +228,10 @@ moduleIntoTerm (dtt:dtts) = Let i dtt.name ty dtt.body rest
             ty = getTy dtt.body
             i = getInfo dtt.body
 
+-- termIntoModule :: TTerm -> [Name] -> Module 
+-- Ver si es factible, para no tener que implementar las optimizaciones entre decls
+
+
 global2free :: [Name] -> Decl TTerm -> Decl TTerm
 global2free globals dtt = Decl{pos = dtt.pos, name = dtt.name, body = visit (replaceGlobal globals) dtt.body}
 

@@ -43,7 +43,7 @@ import System.FilePath (dropExtension)
 import IR
 import C ( ir2C )
 import ClosureConvert ( runCC )
-import Optimizer as Opt
+import Optimizer 
 
 prompt :: String
 prompt = "FD4> "
@@ -52,14 +52,14 @@ prompt = "FD4> "
 parseMode :: Parser (Mode, Bool)
 parseMode =
   (,)
-    <$> ( flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
-            <|> flag Interactive Interactive  ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
-            <|> flag' InteractiveCEK          ( long "icek" <> short 'k' <> help "Ejecutar de forma interactiva en la CEK")
-            <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
-            <|> flag' RunVM       (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
-            <|> flag Eval Eval    (long "eval" <> short 'e' <> help "Evaluar un programa")
-            <|> flag CEK CEK      (long "cek" <> short 'k' <> help "Evaluar un programa con la CEK")
-            <|> flag' CC          (long "cc" <> short 'c' <> help "Compilar a código C") 
+    <$> ( flag  Interactive Interactive   (long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
+      <|> flag' InteractiveCEK            (long "icek"        <> short 'k' <> help "Ejecutar de forma interactiva en la CEK")
+      <|> flag' Bytecompile               (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
+      <|> flag' Typecheck                 (long "typecheck"   <> short 't' <> help "Chequear tipos e imprimir el término")
+      <|> flag  Eval Eval                 (long "eval"        <> short 'e' <> help "Evaluar un programa")
+      <|> flag  CEK CEK                   (long "cek"         <> short 'k' <> help "Evaluar un programa con la CEK")
+      <|> flag' RunVM                     (long "runVM"       <> short 'r' <> help "Ejecutar bytecode en la BVM")
+      <|> flag' CC                        (long "cc"          <> short 'c' <> help "Compilar a código C") 
         )
     -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonización")
     -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
@@ -88,12 +88,12 @@ main = execParser opts >>= go
         )
 
     go :: (Mode, Bool, [FilePath]) -> IO ()
-    go (Interactive, opt, files)    = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
-    go (InteractiveCEK, opt, files) = runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
-    go (Bytecompile, opt, files)    = runOrFail (Conf opt Bytecompile)  $ mapM_ compile files
-    go (CC, opt, files)             = runOrFail (Conf opt CC)           $ mapM_ compile files
-    go (RunVM, opt, files)          = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
-    go (m, opt, files)              = runOrFail (Conf opt m)            $ mapM_ compileFile files
+    go (InteractiveCEK, opt, files) = runOrFail (Conf opt Interactive)  $ runInputT defaultSettings (repl files)
+    go (Interactive   , opt, files) = runOrFail (Conf opt Interactive)  $ runInputT defaultSettings (repl files)
+    go (Bytecompile   , opt, files) = runOrFail (Conf opt Bytecompile)  $ mapM_ compile files
+    go (RunVM         , opt, files) = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
+    go (CC            , opt, files) = runOrFail (Conf opt CC)           $ mapM_ compile files
+    go (m             , opt, files) = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
 compile :: MonadFD4 m => FilePath -> m ()
 compile f = do -- Debería unificar Bytecompile y CC
@@ -200,32 +200,11 @@ evalDecl (C.Decl p x e) = do
 
 handleDeclaration :: (MonadFD4 m) => S.Declaration -> m ()
 handleDeclaration d = do
-  m <- getMode
   gamma <- gets globalTypeContext
   let elaborated = Elab.declaration gamma d
   let debugging = False
+  m <- getMode
   case m of
-    Eval -> case elaborated of
-      Left e@(C.Decl p x tm) -> returnUnit debugging e eval
-      Right e@(C.Decl p x ty) -> addTypeDecl e
-    CEK -> case elaborated of
-      Left e@(C.Decl p x tm) -> returnUnit debugging e CEK.eval
-      Right e@(C.Decl p x ty) -> addTypeDecl e
-    Bytecompile -> case elaborated of
-      Left e@(C.Decl p x tm) -> do  tt <- tcDecl (C.Decl p x tm)
-                                    addTermDecl tt
-      Right e@(C.Decl p x ty) -> addTypeDecl e
-    {-Bytecompile8 -> case elaborated of
-      Left e@(C.Decl p x tm) -> do  tt <- tcDecl (C.Decl p x tm)
-                                    addTermDecl tt
-      Right e@(C.Decl p x ty) -> addTypeDecl e-}
-    CC -> case elaborated of
-      Left e@(C.Decl p x tm) -> do  tt <- tcDecl (C.Decl p x tm)
-                                    addTermDecl tt
-      Right e@(C.Decl p x ty) -> addTypeDecl e
-    Interactive -> case elaborated of
-      Left e@(C.Decl p x tm) -> returnUnit debugging e eval
-      Right e@(C.Decl p x ty) -> addTypeDecl e
     Typecheck -> do
       f <- getLastFile
       when debugging $ printFD4 ("Chequeando tipos de " ++ f)
@@ -240,26 +219,44 @@ handleDeclaration d = do
           addTypeDecl (C.Decl p x ty)
           ppty <- ppTypeDecl (C.Decl p x ty)
           printFD4 ppty
-    _ -> return ()
+    evalMode -> 
+      case elaborated of 
+        Right e -> addTypeDecl e
+        Left  e -> case evalMode of
+            Eval            -> returnUnit debugging e eval
+            CEK             -> returnUnit debugging e CEK.eval
+            Bytecompile     -> do tt <- tcDecl e
+                                  addTermDecl tt
+            CC              -> do tt <- tcDecl e
+                                  addTermDecl tt
+            Interactive     -> returnUnit debugging e eval
+            InteractiveCEK  -> return ()
+            RunVM           -> return ()
+            {-
+            Bytecompile8    -> do tt <- tcDecl (C.Decl p x tm)
+                                  addTermDecl tt
+            -}
 
-evalAndAdd :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m (C.Decl C.TTerm)
-evalAndAdd debugging d@(C.Decl p x tm) f =  do
-          when debugging $ printFD4 ("\nBefore Elabing: " ++ show d)
-          when debugging $ printFD4 ("\nRaw: " ++ show tm)
-          tt <- tcDecl d
-          when debugging $ printFD4 ("\nTypeChecked: " ++ show tt)
-          when debugging $ printFD4 "\nEvaling: "
-          te <- f (C.body tt)
-          when debugging $ printFD4 ("\nAfter Evaling: " ++ show te)
-          addTermDecl (C.Decl p x te)
-          mustOpt <- getOpt
-          let optTerm = if mustOpt then Opt.opt te else te
-          when mustOpt $ printFD4 ("\nAfter Optimizing: " ++ show optTerm)
-          addTermDecl (C.Decl p x te)
-          return $ C.Decl p x te
 returnUnit :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m ()
 returnUnit debugging d f = do evalAndAdd debugging d f
                               return ()
+
+evalAndAdd :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m (C.Decl C.TTerm)
+evalAndAdd debugging d@(C.Decl p x tm) evalingFunction =  do
+          when debugging  $ printFD4 ("\nBefore Elaborating: "  ++ show d )
+          when debugging  $ printFD4 ("\nRaw: "                 ++ show tm)
+          tt <- tcDecl d
+          when debugging  $ printFD4 ("\nTypeChecked: "         ++ show tt)
+          mustOpt <- getOpt
+          when mustOpt    $ printFD4 ("\nOptimizing: ")
+          let optTerm =   if mustOpt then optim (C.body tt) else (C.body tt)
+          when mustOpt    $ printFD4 ("\nAfter Optimizing: "    ++ show optTerm)
+          when debugging  $ printFD4 ("\nEvaluating: ")
+          te <- evalingFunction optTerm
+          when debugging  $ printFD4 ("\nAfter Evaluating: "    ++ show te)
+          let evaluated = (C.Decl p x te) 
+          addTermDecl evaluated
+          return $ evaluated
 
 data Command
   = Compile CompileForm

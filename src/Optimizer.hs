@@ -1,12 +1,12 @@
-module Optimizer (opt, hasEffects, deadCodeElimination, isUsed, addReferences) where
+module Optimizer (optim, hasEffects, deadCodeElimination, isUsed, addReferences) where
 
 import Core 
 import Subst
 import MonadFD4
 import Global
 
-opt :: TTerm -> TTerm
-opt = go fuel where
+optim :: TTerm -> TTerm
+optim = go fuel where
     fuel = 10
     go:: Int -> TTerm -> TTerm 
     go 0 tt = tt

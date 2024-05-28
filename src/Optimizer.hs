@@ -5,10 +5,10 @@ import Subst
 import MonadFD4
 import Global
 
-optim :: TTerm -> TTerm
+optim :: Decl TTerm -> Decl TTerm
 optim = go fuel where
     fuel = 10
-    go:: Int -> TTerm -> TTerm 
+    go:: Int -> Decl TTerm -> Decl TTerm 
     go 0 tt = tt
     go n tt = t4 
         where   t1 = constantFolding tt
@@ -16,8 +16,8 @@ optim = go fuel where
                 t3 = constantReplacing t2
                 t4 = go (n-1) t3
 
-constantFolding :: TTerm -> TTerm
-constantFolding = visit go
+constantFolding :: Decl TTerm -> Decl TTerm
+constantFolding dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
     where   go ifT@(IfZ i c t e) = case c of 
                 Lit _ (N 0) -> t
                 Lit _ (N _) -> e
@@ -47,8 +47,8 @@ constantFolding = visit go
                 -}
             go term = term    
 
-constantPropagation :: TTerm -> TTerm
-constantPropagation = visit go
+constantPropagation :: Decl TTerm -> Decl TTerm
+constantPropagation dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
     where   go t@(Let i  x xty alias (Sc1 body)) = case alias of
                 Lit i2 l  -> Let i x xty alias (Sc1 body')
                                 where   body' = subst (Lit i2 l) (Sc1 body)
@@ -58,16 +58,16 @@ constantPropagation = visit go
             -- let x = 5
 
 
-constantReplacing :: TTerm -> TTerm
-constantReplacing = visit go 
+constantReplacing :: Decl TTerm -> Decl TTerm
+constantReplacing dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body} 
     where
         go :: TTerm -> TTerm
         go (App i (Lam _ _  _  scope) l@(Lit _ _)) = subst l scope
         go (App i (Lam _ nm ty scope) t          ) = Let i nm ty t scope -- Ver si esta es una buena idea
         go t = t
 
-inLine :: TTerm -> TTerm
-inLine = visit go
+inLine :: Decl TTerm -> Decl TTerm
+inLine dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body} 
 -- CHEQUEAR BIEN
     where
         go :: TTerm -> TTerm
@@ -132,9 +132,9 @@ addReferences (Let _ _ _ alias (Sc1 bdy)) = do
 -}
 addReferences _ = return []
 
-deadCodeElimination :: (MonadFD4 m) => [Decl TTerm] -> m [Decl TTerm]
-deadCodeElimination [] = return []
-deadCodeElimination ds = do 
+deadCodeElimination :: (MonadFD4 m) => m [Decl TTerm]
+deadCodeElimination = do 
+  ds <- gets termEnvironment
   variables <- gets usedVariables
   let noDeadDecls = filter (\d -> ( not (mustBeFiltered d.body variables) )) ds 
   return noDeadDecls

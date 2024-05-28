@@ -96,14 +96,19 @@ main = execParser opts >>= go
     go (m             , opt, files) = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
 compile :: MonadFD4 m => FilePath -> m ()
-compile f = do -- Debería unificar Bytecompile y CC
+compile f = do 
     m <- getMode
     decls <- loadFile f
+    -- initHandling <- getTime
     mapM_ handleDeclaration decls
+    -- endHandling <- getTime
+    -- printFD4 $ "Tiempo consumido en handling " ++ show (endHandling - initHandling)
     gdecls <- reverse <$> gets termEnvironment
     let gNames = map (\d -> d.name) gdecls
     let gdeclReplaced = map (global2free gNames) gdecls
-    -- init <- getTime
+    mustOptimize <- getOpt
+    -- when mustOptimize $ saveTermBeforeOptimization gdeclReplaced
+    -- when mustOptimize $ initCompiling <- getTime
     case m of 
       Bytecompile -> do 
         let bc = byteCompileModule gdeclReplaced
@@ -115,9 +120,9 @@ compile f = do -- Debería unificar Bytecompile y CC
         printFD4 code
         liftIO $ ccWrite code newFile
       _ -> abort "Modo de compilación de archivo incorrecto"
-    -- end <- getTime
+    -- when mustOptimize $ endCompiling <- getTime
     -- printFD4 $ "Tiempo consumido en compilación de " ++
-    --                  show m ++ ": " ++ show (end - init)
+    --                  show m ++ ": " ++ show (endCompiling - initCompiling)
 
 
 
@@ -182,10 +187,20 @@ compileFile f = do
   setInter False
   when i $ printFD4 ("Abriendo " ++ f ++ "...")
   declarations <- loadFile f
+    -- initHandling <- getTime
   mapM_ handleDeclaration declarations
+    -- endHandling <- getTime
+    -- printFD4 $ "Tiempo consumido en handling " ++ show (endHandling - initHandling)
   handleDecl <- reverse <$> gets termEnvironment
   mustOptimize <- getOpt
-  optDecls <- if mustOptimize then deadCodeElimination handleDecl else return handleDecl
+  -- when mustOptimize $ saveTermBeforeOptimization gdeclReplaced
+  -- when mustOptimize $ initCompiling <- getTime
+  optDecls <- if mustOptimize then do deadCodeElimination
+                                      return handleDecl
+                              else return handleDecl
+  -- when mustOptimize $ endCompiling <- getTime
+  -- printFD4 $ "Tiempo consumido en compilación de " ++
+  --                  show m ++ ": " ++ show (endCompiling - initCompiling)
   setInter i
 
 parseIO :: (MonadFD4 m) => String -> P a -> String -> m a

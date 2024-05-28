@@ -1,4 +1,0 @@
-let fact5:Nat->Nat = let rec fact (x:Nat) :Nat = 
-    ( ifz x then 1 
-            else (x + (fact (x-1)))
-    ) in print "5! = " (fact 5) 

@@ -4,14 +4,15 @@ import Core
 import Subst
 import MonadFD4
 import Global
+import Debug.Trace
 
 optim :: Decl TTerm -> Decl TTerm
 optim = go fuel where
     fuel = 10
     go:: Int -> Decl TTerm -> Decl TTerm 
-    go 0 tt = tt
-    go n tt = t4 
-        where   t1 = constantFolding tt
+    go 0 t0 = t0
+    go n t0 = t4 
+        where   t1 = constantFolding t0
                 t2 = constantPropagation t1
                 t3 = constantReplacing t2
                 t4 = go (n-1) t3
@@ -49,21 +50,19 @@ constantFolding dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
 
 constantPropagation :: Decl TTerm -> Decl TTerm
 constantPropagation dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
-    where   go t@(Let i  x xty alias (Sc1 body)) = case alias of
-                Lit i2 l  -> Let i x xty alias (Sc1 body')
-                                where   body' = subst (Lit i2 l) (Sc1 body)
-                _         -> t
-            go t                                 = t
-            -- Deberíamos también tener en cuenta que hay que hacer constansPropagation para las declaraciones globales onda 
-            -- let x = 5
+    where 
+      go t@(Let _ _ _ l@(Lit _ _) sc) = trace ("por sustituir t: \n" ++ show t ++ "\n" ++ show l) subst l sc 
+      go t = t
+      -- Deberíamos también tener en cuenta que hay que hacer constansPropagation para las declaraciones globales onda 
+      -- let x = 5
 
 
 constantReplacing :: Decl TTerm -> Decl TTerm
 constantReplacing dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body} 
     where
         go :: TTerm -> TTerm
-        go (App i (Lam _ _  _  scope) l@(Lit _ _)) = subst l scope
-        go (App i (Lam _ nm ty scope) t          ) = Let i nm ty t scope -- Ver si esta es una buena idea
+        go (App i (Lam _ _  _  sc) l@(Lit _ _)) = subst l sc
+        go (App i (Lam _ nm ty sc) t          ) = Let i nm ty t sc -- Ver si esta es una buena idea
         go t = t
 
 inLine :: Decl TTerm -> Decl TTerm

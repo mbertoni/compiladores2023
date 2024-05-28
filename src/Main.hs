@@ -264,10 +264,10 @@ evalAndAdd debugging d@(C.Decl p x tm) evalingFunction =  do
           when debugging  $ printFD4 ("\nTypeChecked: "         ++ show tt)
           mustOpt <- getOpt
           when mustOpt    $ printFD4 ("\nOptimizing: ")
-          let optTerm =   if mustOpt then optim (C.body tt) else (C.body tt)
+          let optTerm =   if mustOpt then optim tt else tt
           when mustOpt    $ printFD4 ("\nAfter Optimizing: "    ++ show optTerm)
           when debugging  $ printFD4 ("\nEvaluating: ")
-          te <- evalingFunction optTerm
+          te <- evalingFunction optTerm.body
           when debugging  $ printFD4 ("\nAfter Evaluating: "    ++ show te)
           let evaluated = (C.Decl p x te) 
           addTermDecl evaluated

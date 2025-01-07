@@ -23,35 +23,24 @@ constantFolding dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
                 Lit _ (N 0) -> t
                 Lit _ (N _) -> e
                 _           -> ifT
-                -- Creo que esto deberíamos borrarlo
-                {- 
-                  where
-                    c' = constantFolding c 
-                    t' = constantFolding t
-                    e' = constantFolding e
-                -}
             go t@(BOp i op t1 t2) =  case t2 of 
                 -- Tendríamos que ver el print acá, ¿no?
                     -- Si t2 es 0, retorno t1
                     Lit _ (N 0) -> t1 
                     _           -> case t1 of
-                                      -- Si el segundo es 0, y es un Add, devuelvo el primero
-                                      -- Si el segundo es 0, y es un Sub, devuelvo 0
+                                      -- Si el primero es 0, y es un Add, devuelvo el segundo
+                                      -- Si el primero es 0, y es un Sub, devuelvo 0
                                       Lit _ (N 0) -> 
                                         case op of    Add -> t2
                                                       Sub -> Lit i (N 0)
                                       -- Default, no hago nada.
                                       _           ->  t
-                {-  Creo que esto deberíamos borrarlo
-                    where   t1' = constantFolding t1
-                            t2' = constantFolding t2
-                -}
             go term = term    
 
 constantPropagation :: Decl TTerm -> Decl TTerm
 constantPropagation dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
     where 
-      go t@(Let _ _ _ l@(Lit _ _) sc) = trace ("por sustituir t: \n" ++ show t ++ "\n" ++ show l) subst l sc 
+      go t@(Let _ _ _ l@(Lit _ _) sc) = trace ("por sustituir l: \n" ++ show l ++ "\nEn sc: \n" ++ show sc) subst l sc 
       go t = t
       -- Deberíamos también tener en cuenta que hay que hacer constansPropagation para las declaraciones globales onda 
       -- let x = 5

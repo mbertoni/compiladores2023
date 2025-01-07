@@ -1,0 +1,35 @@
+# TC completo 
+let f3 : Nat =
+   let a : Nat = 2 in 
+      let f (y : Nat) : Nat =
+         let (b : Nat) = 4 in
+     # el error se da en este nivel,
+            let g (z : Nat) : Nat = z + a + 4 #b
+      in y + g 5
+in f 3
+
+let res : Nat = print "res = " f3
+
+
+
+# error
+let (b : Nat) = 4 in
+    let g (z : Nat) : Nat = z + a + 4 in 
+        y + g 5
+
+
+
+por sustituir l: 
+Lit (_,Nat) (N {unN = 4})
+En sc: 
+{Let (_,Nat) "g" (Arrow Nat Nat) (Lam (_,Arrow Nat Nat) "z" Nat {
+    BOp (_,Nat) Add 
+        (BOp (_,Nat) Add (Var (_,Nat) (Bound 0)) (Var (_,Nat) (Bound 3))) 
+        (Lit (_,Nat) (N {unN = 4}))
+    }) 
+{BOp (_,Nat) Add 
+    (Var (_,Nat) (Bound 2)) 
+    (App (_,Nat) (Var (_,Arrow Nat Nat) (Bound 0)) (Lit (_,Nat) (N {unN = 5})))}}
+
+0 : g
+

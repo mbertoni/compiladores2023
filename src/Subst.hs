@@ -76,7 +76,7 @@ subst n (Sc1 m) = varChanger (\_ p x -> Var p (Free x)) bnd m
     bnd depth p i
       | i < depth = Var p (Bound i)
       | i == depth = n
-      | otherwise = abort "substN: M is not LC"
+      | otherwise = abort $ "substN: M is not LC - 1" -- ++ show n ++ show m
 
 substAll :: [Tm info Var] -> Tm info Var -> Tm info Var
 substAll ns = varChanger (\_ p n -> Var p (Free n)) bnd

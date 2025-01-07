@@ -121,8 +121,7 @@ compile f = do
         liftIO $ ccWrite code newFile
       _ -> abort "Modo de compilación de archivo incorrecto"
     -- when mustOptimize $ endCompiling <- getTime
-    -- printFD4 $ "Tiempo consumido en compilación de " ++
-    --                  show m ++ ": " ++ show (endCompiling - initCompiling)
+    -- when mustOptimize printFD4 $ "Tiempo consumido en compilación de " ++ show m ++ ": " ++ show (endCompiling - initCompiling)
 
 
 

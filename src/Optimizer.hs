@@ -11,11 +11,12 @@ optim = go fuel where
     fuel = 10
     go:: Int -> Decl TTerm -> Decl TTerm 
     go 0 t0 = t0
-    go n t0 = t4 
+    go n t0 = t5 
         where   t1 = constantFolding t0
-                t2 = constantPropagation t1
-                t3 = constantReplacing t2
-                t4 = go (n-1) t3
+                -- t2 = constantPropagation t1
+                t3 = constantReplacing t1
+                -- t4 = inLine t3
+                t5 = go (n-1) t3
 
 constantFolding :: Decl TTerm -> Decl TTerm
 constantFolding dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
@@ -51,7 +52,7 @@ constantReplacing dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.bod
     where
         go :: TTerm -> TTerm
         go (App i (Lam _ _  _  sc) l@(Lit _ _)) = subst l sc
-        go (App i (Lam _ nm ty sc) t          ) = Let i nm ty t sc -- Ver si esta es una buena idea
+        go (App i (Lam _ nm ty sc) t          ) = go $ Let i nm ty t sc -- Ver si esta es una buena idea
         go t = t
 
 inLine :: Decl TTerm -> Decl TTerm
@@ -59,7 +60,7 @@ inLine dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
 -- CHEQUEAR BIEN
     where
         go :: TTerm -> TTerm
-        go t@(Let i x xty alias scope@(Sc1 body)) = if isSimple then subst alias scope else t -- Aplica a App, no a Let
+        go t@(Let i x xty alias@(Lit _ _) scope@(Sc1 body)) = subst alias scope -- if isSimple then subst alias scope else t -- Aplica a App, no a Let
             where isSimple = False -- ver cómo calculamos esto
         go t = t
 

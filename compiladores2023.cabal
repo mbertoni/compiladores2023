@@ -83,3 +83,4 @@ executable compiladores2023
     , prettyprinter
     , prettyprinter-ansi-terminal
     , text
+    , time                        >= 1.12.2

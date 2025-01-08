@@ -17,6 +17,7 @@ import Control.Monad.Trans
 import qualified Core as C
 import Data.Char (isSpace)
 import Data.List (intercalate, isPrefixOf, nub)
+import Data.Time (getCurrentTime, diffUTCTime)
 import Data.Maybe (fromMaybe)
 import Elab (declaration, term, ident)
 import Errors
@@ -99,16 +100,18 @@ compile :: MonadFD4 m => FilePath -> m ()
 compile f = do 
     m <- getMode
     decls <- loadFile f
-    -- initHandling <- getTime
+    initHandling <- liftIO getCurrentTime
     mapM_ handleDeclaration decls
-    -- endHandling <- getTime
-    -- printFD4 $ "Tiempo consumido en handling " ++ show (endHandling - initHandling)
+    endHandling <- liftIO getCurrentTime
+    -- printFD4 $ "Tiempo consumido en handling " ++ show (diffUTCTime endHandling initHandling)
     gdecls <- reverse <$> gets termEnvironment
     let gNames = map (\d -> d.name) gdecls
     let gdeclReplaced = map (global2free gNames) gdecls
     mustOptimize <- getOpt
     -- when mustOptimize $ saveTermBeforeOptimization gdeclReplaced
-    -- when mustOptimize $ initCompiling <- getTime
+    initCompiling <- liftIO getCurrentTime
+    -- when mustOptimize $ do initCompiling <- liftIO getCurrentTime
+    --                        return ()
     case m of 
       Bytecompile -> do 
         let bc = byteCompileModule gdeclReplaced
@@ -120,18 +123,20 @@ compile f = do
         printFD4 code
         liftIO $ ccWrite code newFile
       _ -> abort "Modo de compilación de archivo incorrecto"
-    -- when mustOptimize $ endCompiling <- getTime
-    -- when mustOptimize printFD4 $ "Tiempo consumido en compilación de " ++ show m ++ ": " ++ show (endCompiling - initCompiling)
+    when mustOptimize $ do  endCompiling <- liftIO getCurrentTime
+                            -- printFD4 $ "Tiempo consumido en compilación de: " ++ show (diffUTCTime endCompiling initCompiling)
+                            return ()
 
 
 
 runVM :: MonadFD4 m => FilePath -> m ()
 runVM f = do
-  -- init <- getTime
+  init <- liftIO getCurrentTime
   bc <- liftIO $ bcRead f
   runBC bc
-  -- end <- getTime
-  -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (end - init)
+  end <- liftIO getCurrentTime
+  -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (diffUTCTime end init)
+  return ()
 
 runOrFail :: Conf -> FD4 a -> IO a
 runOrFail c m = do
@@ -186,20 +191,20 @@ compileFile f = do
   setInter False
   when i $ printFD4 ("Abriendo " ++ f ++ "...")
   declarations <- loadFile f
-    -- initHandling <- getTime
+  initHandling <- liftIO getCurrentTime
   mapM_ handleDeclaration declarations
-    -- endHandling <- getTime
-    -- printFD4 $ "Tiempo consumido en handling " ++ show (endHandling - initHandling)
+  endHandling <- liftIO getCurrentTime
+  -- printFD4 $ "Tiempo consumido en handling " ++ show (diffUTCTime endHandling initHandling)
   handleDecl <- reverse <$> gets termEnvironment
   mustOptimize <- getOpt
   -- when mustOptimize $ saveTermBeforeOptimization gdeclReplaced
-  -- when mustOptimize $ initCompiling <- getTime
-  optDecls <- if mustOptimize then do deadCodeElimination
-                                      return handleDecl
-                              else return handleDecl
-  -- when mustOptimize $ endCompiling <- getTime
-  -- printFD4 $ "Tiempo consumido en compilación de " ++
-  --                  show m ++ ": " ++ show (endCompiling - initCompiling)
+  optDecls <- if mustOptimize 
+      then do initCompiling <- liftIO getCurrentTime
+              deadCodeElimination
+              endCompiling <- liftIO getCurrentTime
+              -- printFD4 $ "Tiempo consumido en deadCode: " ++ show (diffUTCTime endCompiling initCompiling)
+              return handleDecl
+      else return handleDecl            
   setInter i
 
 parseIO :: (MonadFD4 m) => String -> P a -> String -> m a

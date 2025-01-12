@@ -96,7 +96,7 @@ main = execParser opts >>= go
     go (CC            , opt, files) = runOrFail (Conf opt CC)           $ mapM_ compile files
     go (m             , opt, files) = runOrFail (Conf opt m)            $ mapM_ compileFile files
 
-compile :: MonadFD4 m => FilePath -> m ()
+compile :: (MonadFD4 m) => FilePath -> m ()
 compile f = do 
     m <- getMode
     decls <- loadFile f
@@ -131,11 +131,11 @@ compile f = do
 
 runVM :: MonadFD4 m => FilePath -> m ()
 runVM f = do
-  init <- liftIO getCurrentTime
+  initTime <- liftIO getCurrentTime
   bc <- liftIO $ bcRead f
   runBC bc
-  end <- liftIO getCurrentTime
-  -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (diffUTCTime end init)
+  endTime <- liftIO getCurrentTime
+  -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (diffUTCTime endTime initTime)
   return ()
 
 runOrFail :: Conf -> FD4 a -> IO a

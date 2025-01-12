@@ -21,6 +21,7 @@ data Pos
     NoPos
   | -- | Posición en un archivo.
     Pos !Line !Column
+  deriving Eq
 
 instance Semigroup Pos where
   i <> NoPos = i

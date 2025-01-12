@@ -11,12 +11,12 @@ optim = go fuel where
     fuel = 10
     go:: Int -> Decl TTerm -> Decl TTerm 
     go 0 t0 = t0
-    go n t0 = t5 
+    go n t0 = t4 
         where   t1 = constantFolding t0
-                -- t2 = constantPropagation t1
-                t3 = constantReplacing t1
-                -- t4 = inLine t3
-                t5 = go (n-1) t3
+                t2 = constantPropagation t1 
+                -- t3 = if t1 /= t2 then trace ("\nPrevio cp, t1: \n" ++ show t1 ++ "\n" ++ "\nPost   cp, t2: \n" ++ show t2 ++ "\n") inLine t2 else inLine t2
+                t3 = inLine t2
+                t4 = go (n-1) t3
 
 constantFolding :: Decl TTerm -> Decl TTerm
 constantFolding dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
@@ -27,13 +27,17 @@ constantFolding dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
             go t@(BOp i op t1 t2) =  case t2 of 
                 -- Tendríamos que ver el print acá, ¿no?
                     -- Si t2 es 0, retorno t1
-                    Lit _ (N 0) -> t1 
+                    Lit _ (N 0) -> -- trace ("\nCaso t2 = 0, t: \n" ++ show t ++ "\n")
+                                    t1 
                     _           -> case t1 of
                                       -- Si el primero es 0, y es un Add, devuelvo el segundo
                                       -- Si el primero es 0, y es un Sub, devuelvo 0
                                       Lit _ (N 0) -> 
-                                        case op of    Add -> t2
-                                                      Sub -> Lit i (N 0)
+                                        
+                                        case op of    Add -> -- trace ("\nCaso t1 = 0 y Add, t: \n" ++ show t ++ "\n") 
+                                                            t2
+                                                      Sub -> -- trace ("\nCaso t1 = 0 y Sub, t: \n" ++ show t ++ "\n") 
+                                                            Lit i (N 0)
                                       -- Default, no hago nada.
                                       _           ->  t
             go term = term    
@@ -41,27 +45,21 @@ constantFolding dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
 constantPropagation :: Decl TTerm -> Decl TTerm
 constantPropagation dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body}
     where 
-      go t@(Let _ _ _ l@(Lit _ _) sc) = trace ("por sustituir l: \n" ++ show l ++ "\nEn sc: \n" ++ show sc) subst l sc 
+      go t@(Let i x xty l@(Lit _ _) sc) = Let i x xty l (close x $ substNoError l sc) -- trace ("por sustituir l: \n" ++ show l ++ "\nEn sc: \n" ++ show sc ++ "\n") 
       go t = t
       -- Deberíamos también tener en cuenta que hay que hacer constansPropagation para las declaraciones globales onda 
       -- let x = 5
 
-
-constantReplacing :: Decl TTerm -> Decl TTerm
-constantReplacing dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body} 
-    where
-        go :: TTerm -> TTerm
-        go (App i (Lam _ _  _  sc) l@(Lit _ _)) = subst l sc
-        go (App i (Lam _ nm ty sc) t          ) = go $ Let i nm ty t sc -- Ver si esta es una buena idea
-        go t = t
 
 inLine :: Decl TTerm -> Decl TTerm
 inLine dt = Decl{pos = dt.pos, name = dt.name, body = visit go dt.body} 
 -- CHEQUEAR BIEN
     where
         go :: TTerm -> TTerm
-        go t@(Let i x xty alias@(Lit _ _) scope@(Sc1 body)) = subst alias scope -- if isSimple then subst alias scope else t -- Aplica a App, no a Let
-            where isSimple = False -- ver cómo calculamos esto
+        go t@(Let i x xty alias@(Lit _ _) sc@(Sc1 body)) =  Let i x xty alias (close x $ substNoError alias sc) 
+        go (App i (Lam _ _  _  sc) l@(Lit _ _)) = substNoError l sc
+        -- go (App i (Lam _ f fty sc) x ) = go $ Let i z fty e (subst x sc)
+        --     where z = getFresh
         go t = t
 
 -- Deberíamos tenerlo en cuenta para contant folding y para subexp elimination <si la implementamos>

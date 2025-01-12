@@ -26,10 +26,10 @@ data Literal
   = N {unN :: Int}
   | S {unS :: String}
   | U {unU :: ()}
-  deriving (Show)
+  deriving (Show,Eq)
 
 data BinaryOp = Add | Sub
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- | tipo de datos de declaraciones, parametrizado por el tipo del cuerpo de la declaración
 data Decl a = Decl
@@ -38,6 +38,10 @@ data Decl a = Decl
     body :: a
   }
   deriving (Show)
+instance (Eq a) => Eq (Decl a) where
+  x == y = x.name == y.name && x.body == y.body
+
+
 
 -- deriving instance Show Pos -- TODO mmmm.. no entiendo
 
@@ -65,6 +69,18 @@ data Tm info var
   | IfZ info (Tm info var) (Tm info var) (Tm info var)
   | Let info Name Ty (Tm info var) (Scope info var)
   deriving (Show, Functor)
+instance (Eq var) => Eq (Tm info var) where
+  x@(Var _ v) == y@(Var _ w) = v == w
+  x@(Lit _ l) == y@(Lit _ m) = l == m
+  x@(Lam _ xn xt xs)    == y@(Lam _ yn yt ys)       = xn == yn && xt == yt && xs == ys
+  x@(App _ xt1 xt2)     == y@(App _ yt1 yt2)      = xt1 == yt1 && xt2 == yt2 
+  x@(Pnt _ l1 t1)       == y@(Pnt _ l2 t2)        = l1 == l2 && t1 == t2
+  x@(Fix _ fn ft xn xt xs) == y@(Fix _ gn gt yn yt ys)  = fn == gn && ft == gt && xn == yn && xt == yt && xs == ys
+  x@(IfZ _ xc xt xf)  == y@(IfZ _ yc yt yf) = xc == yc && xt == yt && xf == yf
+  x@(Let _ xnm xty xt xs) == y@(Let _ ynm yty yt ys) = xnm == ynm && xty == yty && xt == yt && xs == ys
+  x@(BOp _ xop xt1 xt2)  == y@(BOp _ yop yt1 yt2) = xt1 == yt1 && xt2 == yt2 && xop == yop
+  x == y = False
+
 
 -- | 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición
 type Term = Tm Pos Var
@@ -78,14 +94,14 @@ data Var
   = Bound !Int
   | Free Name
   | Global Name
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- Scope es un término con una o dos variables que escapan.
 newtype Scope info var = Sc1 {unSc1 :: Tm info var}
-  deriving (Functor)
+  deriving (Functor, Eq)
 
 newtype Scope2 info var = Sc2 {unSc2 :: Tm info var}
-  deriving (Functor)
+  deriving (Functor, Eq)
 
 instance (Show info, Show var) => Show (Scope info var) where
   show (Sc1 t) = "{" ++ show t ++ "}"

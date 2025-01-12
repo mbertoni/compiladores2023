@@ -1,37 +1,43 @@
-# TC completo 
 let f3 : Nat =
-   let a : Nat = 2 in 
-      let f (y : Nat) : Nat =
-         let (b : Nat) = 4 in
-     # el error se da en este nivel,
-            let g (z : Nat) : Nat = z + a + 4 #b
-      in y + g 5
+    let a : Nat = 2 
+    in  let f (y : Nat) : Nat = let (b : Nat) = 4
+                                in  let g (z : Nat) : Nat = z + a + b
+                                    in y + g 5
 in f 3
 
-let res : Nat = print "res = " f3
+
+
+
 
 
 
 # error
-let (b : Nat) = 4 in
-    let g (z : Nat) : Nat = z + a + 4 in 
-        y + g 5
+Previo cp, t1: 
+Decl { 
+    pos = _, 
+    name = "f3", 
+    body = Let (_,Nat) "a" Nat (Lit (_,Nat) (N {unN = 2})) 
+        {Let (_,Nat) "f" (Arrow Nat Nat) (Lam (_,Arrow Nat Nat) "y" Nat {Let (_,Nat) "b" Nat (Lit (_,Nat) (N {unN = 4})) 
+        {Let (_,Nat) "g" (Arrow Nat Nat) (Lam (_,Arrow Nat Nat) "z" Nat 
+            {BOp (_,Nat) 
+                Add (BOp (_,Nat) Add (Var (_,Nat) (Bound 0)) (Var (_,Nat) (Bound 3))) # z + a
+                    (Var (_,Nat) (Bound 1))}) # + b
+            {BOp (_,Nat) Add (Var (_,Nat) (Bound 2))  # in y
+                (App (_,Nat) (Var (_,Arrow Nat Nat) (Bound 0)) (Lit (_,Nat) (N {unN = 5})))}}}) # + g 5
+        
+        {App (_,Nat) (Var (_,Arrow Nat Nat) (Bound 0)) (Lit (_,Nat) (N {unN = 3}))}}} # in f 3
 
-
-# ------------------ ayer
-por sustituir l: 
-Lit (_,Nat) (N {unN = 4})
-En sc: 
-{Let (_,Nat) "g" (Arrow Nat Nat) 
-    (Lam (_,Arrow Nat Nat) "z" Nat {
-        BOp (_,Nat) Add 
-            (BOp (_,Nat) Add (Var (_,Nat) (Bound 0)) (Var (_,Nat) (Bound 3))) 
-            (Lit (_,Nat) (N {unN = 4}))
-    }) 
-    {BOp (_,Nat) Add 
-        (Var (_,Nat) (Bound 2)) 
-        (App (_,Nat) (Var (_,Arrow Nat Nat) (Bound 0)) (Lit (_,Nat) (N {unN = 5})))
-    }
-}
-
-0 : g
+Post   cp, t2: 
+Decl {
+    pos = _, 
+    name = "f3", 
+    body = Let (_,Nat) "a" Nat (Lit (_,Nat) (N {unN = 2})) 
+        {Let (_,Nat) "f" (Arrow Nat Nat) (Lam (_,Arrow Nat Nat) "y" Nat {Let (_,Nat) "b" Nat (Lit (_,Nat) (N {unN = 4})) 
+        {Let (_,Nat) "g" (Arrow Nat Nat) (Lam (_,Arrow Nat Nat) "z" Nat 
+            {BOp (_,Nat) 
+                Add (BOp (_,Nat) Add (Var (_,Nat) (Bound 0)) (Lit (_,Nat) (N {unN = 2}))) # z + 2
+                    (Lit (_,Nat) (N {unN = 4}))}) # + 4
+                {BOp (_,Nat) Add (Var (_,Nat) (Bound 2)) 
+                    (App (_,Nat) (Var (_,Arrow Nat Nat) (Bound 0)) (Lit (_,Nat) (N {unN = 5})))}}}) # + g 5
+        
+        {App (_,Nat) (Var (_,Arrow Nat Nat) (Bound 0)) (Lit (_,Nat) (N {unN = 3}))}}} # in f 3

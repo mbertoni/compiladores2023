@@ -2,8 +2,7 @@ let f3 : Nat =
    let a : Nat = 2 in 
       let f (y : Nat) : Nat =
          let (b : Nat) = 4 in
-     # el error se da en este nivel,
-            let g (z : Nat) : Nat = z + a + 4 #b
+            let g (z : Nat) : Nat = z + a + b
       in y + g 5
 in f 3
 

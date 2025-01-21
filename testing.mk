@@ -13,8 +13,8 @@ TESTS	:= $(shell find $(TESTDIRS) -name '*.fd4' -type f | sort)
 EXE	:= $(shell cabal exec whereis compiladores2023 | awk '{print $$2};')
 VM	:= ./vm/macc
 
-# EXTRAFLAGS	:=
-EXTRAFLAGS	+= --optimize
+EXTRAFLAGS	:=
+# EXTRAFLAGS	+= --optimize
 
 # Las reglas a chequear. Se puede deshabilitar toda una familia de tests
 # comentando una de estas líneas.
@@ -23,11 +23,11 @@ CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
 CHECK	+= $(patsubst %.fd4,%.bc32,$(TESTS))
 CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
 CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_opt,$(TESTS))
 CHECK	+= $(patsubst %.fd4,%.c,$(TESTS))
 CHECK	+= $(patsubst %,%.check_exe,$(TESTS))
 CHECK	+= $(patsubst %.fd4,%.exe,$(TESTS))
+CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
+CHECK	+= $(patsubst %,%.check_opt,$(TESTS))
 
 # Ejemplo: así se puede apagar un test en particular.
 # CHECK	:= $(filter-out tests/correctos/grande.fd4.check_bc32,$(CHECK))
@@ -153,6 +153,7 @@ accept: $(patsubst %,%.accept,$(TESTS))
 
 # Estas directivas indican que NO se borren los archivos intermedios,
 # así podemos examinarlos, particularmente cuando algo no anda.
+# entiendo que esto nos conviene borrarlo igual, cuando todo quede andando
 .SECONDARY: $(patsubst %,%.actual_out_eval,$(TESTS))
 .SECONDARY: $(patsubst %,%.actual_out_cek,$(TESTS))
 .SECONDARY: $(patsubst %.fd4,%.bc32,$(TESTS))

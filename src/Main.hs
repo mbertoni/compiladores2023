@@ -17,7 +17,7 @@ import Control.Monad.Trans
 import qualified Core as C
 import Data.Char (isSpace)
 import Data.List (intercalate, isPrefixOf, nub)
-import Data.Time (getCurrentTime, diffUTCTime)
+import Data.Time (getCurrentTime)
 import Data.Maybe (fromMaybe)
 import Elab (declaration, term, ident)
 import Errors
@@ -48,6 +48,7 @@ import Optimizer
 
 prompt :: String
 prompt = "FD4> "
+
 
 -- | Parser de banderas
 parseMode :: Parser (Mode, Bool)
@@ -197,9 +198,9 @@ compileFile f = do
   -- printFD4 $ "Tiempo consumido en handling " ++ show (diffUTCTime endHandling initHandling)
   handleDecl <- reverse <$> gets termEnvironment
   mustOptimize <- getOpt
-  -- when mustOptimize $ saveTermBeforeOptimization gdeclReplaced
   optDecls <- if mustOptimize 
       then do initCompiling <- liftIO getCurrentTime
+              -- saveTermBeforeOptimization gdeclReplaced
               deadCodeElimination
               endCompiling <- liftIO getCurrentTime
               -- printFD4 $ "Tiempo consumido en deadCode: " ++ show (diffUTCTime endCompiling initCompiling)

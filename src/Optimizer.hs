@@ -4,7 +4,7 @@ import Core
 import Subst
 import MonadFD4
 import Global
-import Debug.Trace
+-- import Debug.Trace
 
 optim :: Decl TTerm -> Decl TTerm
 optim = go fuel where
@@ -124,6 +124,7 @@ deadCodeElimination = do
   ds <- gets termEnvironment
   variables <- gets usedVariables
   let noDeadDecls = filter (\d -> ( not (mustBeFiltered d.body variables) )) ds 
+  printFD4 $ "deadcode"
   return noDeadDecls
     
 

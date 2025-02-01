@@ -68,6 +68,42 @@ import System.IO
 --   - @gets :: (GlEnv -> a) -> m a@
 class (MonadIO m, MonadState GlEnv m, MonadError Error m, MonadReader Conf m) => MonadFD4 m
 
+
+getProfiling :: (MonadFD4 m) => m Bool
+getProfiling = asks profiling 
+
+getProf :: (MonadFD4 m) => m Profile
+getProf = gets profiler
+
+setProf :: (MonadFD4 m) => Profile -> m ()
+setProf p = modify (\s -> s {profiler = p})
+
+addStep :: (MonadFD4 m) => m ()
+addStep = do
+  p@(Prof s _ _ _) <- getProf
+  _ <- setProf $ p {cekSteps = s + 1}
+  return ()
+
+addOp :: (MonadFD4 m) => m ()
+addOp = do
+  p@(Prof _ o _ _) <- getProf
+  _ <- setProf $ p {bcOperations = o + 1}
+  return ()
+
+changeMaxStack :: (MonadFD4 m) => Int -> m ()
+changeMaxStack size = do
+  p@(Prof _ _ s _) <- getProf
+  _ <- setProf $ p {bcMaxStackSize = max s size}
+  return ()
+
+addClosure :: (MonadFD4 m) => m ()
+addClosure = do
+  p@(Prof _ _ _ c) <- getProf
+  _ <- setProf $ p {bcClosuresQty = c + 1}
+  return ()
+
+
+
 getOpt :: (MonadFD4 m) => m Bool
 getOpt = asks optimize
 

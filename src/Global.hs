@@ -28,7 +28,10 @@ data GlEnv = GlEnv
     -- | Variables utilizadas para el deadCode
     usedVariables :: [Name],
     -- | Contador de variables fresh
-    fresh :: Int
+    fresh :: Int,
+    -- | Record de stats del profiler
+    profiler :: Profile
+
   }
 
 globalTypedEnvironment :: GlEnv -> [(Name, Ty)]
@@ -55,9 +58,21 @@ data Mode
 -- \| Build
 data Conf = Conf
   { optimize :: Bool, --  ^ True, si estan habilitadas las optimizaciones.
+    profiling :: Bool, -- ^ True, si está habilitado el profiler.
     modo :: Mode
   }
 
+
+data Profile = Prof {
+  cekSteps :: Int,
+  bcOperations :: Int,
+  bcMaxStackSize :: Int,
+  bcClosuresQty :: Int
+} deriving Show 
+
+startingProfile :: Profile
+startingProfile = Prof 0 0 0 0
+
 -- | Valor del estado inicial
 initialEnv :: GlEnv
-initialEnv = GlEnv False "" 0 0 [] [] [] 0
+initialEnv = GlEnv False "" 0 0 [] [] [] 0 startingProfile

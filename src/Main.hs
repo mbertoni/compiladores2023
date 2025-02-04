@@ -10,7 +10,6 @@ module Main where
 -- import Control.Monad
 
 import qualified CEK
--- import Common
 import Control.Exception (IOException, catch)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.Trans
@@ -38,8 +37,8 @@ import System.Console.Haskeline
 import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPrint, hPutStrLn, stderr)
 import TypeChecker (tc, tcDecl)
-import Control.Monad
-import ByteCompile
+import Control.Monad ( when )
+import ByteCompile ( bcRead, bcWrite, byteCompileModule, global2free, runBC )
 import System.FilePath (dropExtension)
 import IR
 import C ( ir2C )
@@ -51,9 +50,9 @@ prompt = "FD4> "
 
 
 -- | Parser de banderas
-parseMode :: Parser (Mode, Bool)
+parseMode :: Parser (Mode, Bool, Bool)
 parseMode =
-  (,)
+  (,,)
     <$> ( flag  Interactive Interactive   (long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
       <|> flag' InteractiveCEK            (long "icek"        <> short 'k' <> help "Ejecutar de forma interactiva en la CEK")
       <|> flag' Bytecompile               (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
@@ -70,11 +69,12 @@ parseMode =
 
 -- reemplazar por la siguiente línea para habilitar opción
     <*> flag False True (long "optimize" <> short 'o' <> help "Optimizar código")
+    <*> flag False True (long "profiling" <> short 'p' <> help "Usando el profiler")
 
 -- | Parser de opciones general, consiste de un modo y una lista de archivos a procesar
-parseArgs :: Parser (Mode, Bool, [FilePath])
+parseArgs :: Parser (Mode, Bool, Bool, [FilePath])
 parseArgs =
-  (\(a, b) c -> (a, b, c))
+  (\(a, b, prof) c -> (a, b, prof, c))
     <$> parseMode
     <*> many (argument str (metavar "FILES..."))
 
@@ -89,13 +89,13 @@ main = execParser opts >>= go
             <> header "Compilador de FD4 de la materia Compiladores 2023"
         )
 
-    go :: (Mode, Bool, [FilePath]) -> IO ()
-    go (InteractiveCEK, opt, files) = runOrFail (Conf opt Interactive)  $ runInputT defaultSettings (repl files)
-    go (Interactive   , opt, files) = runOrFail (Conf opt Interactive)  $ runInputT defaultSettings (repl files)
-    go (Bytecompile   , opt, files) = runOrFail (Conf opt Bytecompile)  $ mapM_ compile files
-    go (RunVM         , opt, files) = runOrFail (Conf opt RunVM)        $ mapM_ runVM files
-    go (CC            , opt, files) = runOrFail (Conf opt CC)           $ mapM_ compile files
-    go (m             , opt, files) = runOrFail (Conf opt m)            $ mapM_ compileFile files
+    go :: (Mode, Bool, Bool, [FilePath]) -> IO ()
+    go (InteractiveCEK, opt, prof, files) = runOrFail (Conf opt prof Interactive)  $ runInputT defaultSettings (repl files)
+    go (Interactive   , opt, prof, files) = runOrFail (Conf opt prof Interactive)  $ runInputT defaultSettings (repl files)
+    go (Bytecompile   , opt, prof, files) = runOrFail (Conf opt prof Bytecompile)  $ mapM_ compile files
+    go (RunVM         , opt, prof, files) = runOrFail (Conf opt prof RunVM)        $ mapM_ runVM files
+    go (CC            , opt, prof, files) = runOrFail (Conf opt prof CC)           $ mapM_ compile files
+    go (m             , opt, prof, files) = runOrFail (Conf opt prof m)            $ mapM_ compileFile files
 
 compile :: (MonadFD4 m) => FilePath -> m ()
 compile f = do 

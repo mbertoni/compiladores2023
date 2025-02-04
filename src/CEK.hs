@@ -4,9 +4,8 @@ import Common
 import Core
 import Data.Default (def)
 import Eval (semOp)
-import MonadFD4
-import Global
-import Subst
+import MonadFD4 ( MonadFD4, printFD4, lookupDecl,  addStep)
+import Subst ( substAll )
 
 data Value
   = VNat Int
@@ -48,15 +47,15 @@ data Frame
 
 seek :: (MonadFD4 m) => TTerm -> Env -> Continuation -> m Value
 seek term env k =   case term of
-                        Pnt _ s t -> seek t env (PntT s : k)
-                        BOp _ op t u -> seek t env (BOpL op u env : k)
-                        IfZ _ c t e -> seek c env (IfZC t e env : k)
-                        App _ t u -> seek t env (AppL u env : k)
-                        Lam i x xty (Sc1 t) -> destroy (CFun i x xty t env) k
-                        Fix i f fty x xty (Sc2 t) -> destroy (CFix i f fty x xty t env) k
-                        Lit _ l -> destroy (lit2Value l) k
-                        Let _ n _ t' (Sc1 t) -> seek t' env (LetD n t env : k)
-                        Var _ (Bound b) -> destroy (env !! b) k
+                        Pnt _ s t -> addStep >> seek t env (PntT s : k)
+                        BOp _ op t u -> addStep >> seek t env (BOpL op u env : k)
+                        IfZ _ c t e -> addStep >> seek c env (IfZC t e env : k)
+                        App _ t u -> addStep >> seek t env (AppL u env : k)
+                        Lam i x xty (Sc1 t) -> addStep >> destroy (CFun i x xty t env) k
+                        Fix i f fty x xty (Sc2 t) -> addStep >> destroy (CFix i f fty x xty t env) k
+                        Lit _ l -> addStep >> destroy (lit2Value l) k
+                        Let _ n _ t' (Sc1 t) -> addStep >> seek t' env (LetD n t env : k)
+                        Var _ (Bound b) -> addStep >> destroy (env !! b) k
                         Var _ (Free nm) ->
                           -- pueden venir Free en los Scope?
                           abort "No debería haber variables libres" -- entiendo que acá tendríamos que fallar.
@@ -64,44 +63,44 @@ seek term env k =   case term of
                           t <- lookupDecl nm
                           case t of
                             Nothing -> abort "No le encontramos la variable global"
-                            Just val -> seek val env k -- pero este val tiene tipo term, pero sabemos que es un val, y si cambiamos de modo?
+                            Just val -> addStep >> seek val env k -- pero este val tiene tipo term, pero sabemos que es un val, y si cambiamos de modo?
 
 destroy :: (MonadFD4 m) => Value -> Continuation -> m Value
 destroy v [] = return v
 destroy v (fr : k) =  case fr of
                           PntT lit@(S st) -> do printFD4 $ st++show v
-                                                destroy v k
-                          PntT _          -> destroy v k
-                          BOpL op term env -> seek term env (BOpR op v : k)
+                                                addStep >> destroy v k
+                          PntT _          -> addStep >> destroy v k
+                          BOpL op term env -> addStep >> seek term env (BOpR op v : k)
                           BOpR op value -> case (value, v) of
-                            (VNat l, VNat r) -> destroy (VNat $ semOp op l r) k
+                            (VNat l, VNat r) -> addStep >> destroy (VNat $ semOp op l r) k
                             _ -> abort "error de tipos runtime en BOpR"
                           IfZC t e env -> case v of
-                            VNat 0 -> seek t env k
-                            VNat _ -> seek e env k
+                            VNat 0 -> addStep >> seek t env k
+                            VNat _ -> addStep >> seek e env k
                             val -> abort "error de tipos runtime en IfZC"
-                          AppL t env -> seek t env (AppR v : k)
+                          AppL t env -> addStep >> seek t env (AppR v : k)
                           AppR clos -> case clos of
-                            CFun _ _ _ t env -> seek t (v : env) k
-                            CFix _ _ _ _ _ t env -> seek t (v:clos:env) k
+                            CFun _ _ _ t env -> addStep >> seek t (v : env) k
+                            CFix _ _ _ _ _ t env -> addStep >> seek t (v:clos:env) k
                             _ -> abort "error de tipos runtime en AppR"
-                          LetD _ t env -> seek t (v : env) k -- olvido tu nombre?
+                          LetD _ t env -> addStep >> seek t (v : env) k -- olvido tu nombre?
 
 eval :: (MonadFD4 m) => TTerm -> m TTerm
 eval t = do v <- seek t [] []
             return $ val2TTerm v
             
-testRun :: TTerm -> IO ()
-testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
-                case resRun of (Right r) -> print r
-                               (Left _)  -> print "Error"
+-- testRun :: TTerm -> IO ()
+-- testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
+--                 case resRun of (Right r) -> print r
+--                                (Left _)  -> print "Error"
 
-testRun' :: MonadFD4 m => TTerm -> m ()
-testRun' t = do 
-                -- printFD4 "Comienza el run:"
-                v <- seek t [] []
-                printFD4 $ show v
-                return ()
+-- testRun' :: MonadFD4 m => TTerm -> m ()
+-- testRun' t = do 
+--                 -- printFD4 "Comienza el run:"
+--                 v <- seek t [] []
+--                 printFD4 $ show v
+--                 return ()
 
 printSeekStatus:: (MonadFD4 m) => TTerm -> Env -> Continuation -> m()
 printSeekStatus term env k = do 

@@ -13,8 +13,8 @@ TESTS	:= $(shell find $(TESTDIRS) -name '*.fd4' -type f | sort)
 EXE	:= $(shell cabal exec whereis compiladores2023 | awk '{print $$2};')
 VM	:= ./vm/macc
 
-EXTRAFLAGS	:=
-# EXTRAFLAGS	+= --optimize
+# EXTRAFLAGS	:=
+EXTRAFLAGS	+= --optimize --profiling
 
 # Las reglas a chequear. Se puede deshabilitar toda una familia de tests
 # comentando una de estas líneas.

@@ -34,11 +34,16 @@ module MonadFD4
     MonadFD4,
     module Control.Monad.Except,
     module Control.Monad.State,
-    termEnvironment
+    termEnvironment,
+    addStep,
+    addOp,
+    addClosure,
+    changeMaxStack
   )
 where
 
-import Common
+import Common ( Pos(NoPos) )
+import Control.Monad ( when )
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
@@ -72,36 +77,44 @@ class (MonadIO m, MonadState GlEnv m, MonadError Error m, MonadReader Conf m) =>
 getProfiling :: (MonadFD4 m) => m Bool
 getProfiling = asks profiling 
 
-getProf :: (MonadFD4 m) => m Profile
-getProf = gets profiler
+getProfiler :: (MonadFD4 m) => m Profile
+getProfiler = gets profiler
 
 setProf :: (MonadFD4 m) => Profile -> m ()
 setProf p = modify (\s -> s {profiler = p})
 
 addStep :: (MonadFD4 m) => m ()
 addStep = do
-  p@(Prof s _ _ _) <- getProf
-  _ <- setProf $ p {cekSteps = s + 1}
+  p@(Prof steps _ _ _) <- getProfiler
+  _ <- setProf $ p {cekSteps = steps + 1}
   return ()
 
 addOp :: (MonadFD4 m) => m ()
 addOp = do
-  p@(Prof _ o _ _) <- getProf
-  _ <- setProf $ p {bcOperations = o + 1}
+  p@(Prof _ operations _ _) <- getProfiler
+  _ <- setProf $ p {bcOperations = operations + 1}
   return ()
 
 changeMaxStack :: (MonadFD4 m) => Int -> m ()
 changeMaxStack size = do
-  p@(Prof _ _ s _) <- getProf
-  _ <- setProf $ p {bcMaxStackSize = max s size}
+  p@(Prof _ _ stack _) <- getProfiler
+  _ <- setProf $ p {bcMaxStackSize = max stack size}
   return ()
 
 addClosure :: (MonadFD4 m) => m ()
 addClosure = do
-  p@(Prof _ _ _ c) <- getProf
-  _ <- setProf $ p {bcClosuresQty = c + 1}
+  p@(Prof _ _ _ closures) <- getProfiler
+  _ <- setProf $ p {bcClosuresQty = closures + 1}
   return ()
 
+printProfile :: (MonadFD4 m) => m ()
+printProfile = do
+  profiler <- getProfiling
+  Control.Monad.when profiler $ do  Prof steps operations stack closures <- getProfiler
+                                    printFD4 $ "Numero de pasos: " ++ show steps
+                                    printFD4 $ "Numero de operaciones: " ++ show operations
+                                    printFD4 $ "Tamaño maximo de stack: " ++ show stack
+                                    printFD4 $ "Numero de clausuras: " ++ show closures
 
 
 getOpt :: (MonadFD4 m) => m Bool

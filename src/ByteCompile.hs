@@ -23,7 +23,6 @@ import Core
 import MonadFD4
 import Subst
 import Common (abort)
-import Global ( Conf(Conf), Mode(Interactive) )
 import qualified Control.Monad as Control.Monad.ExceptT
 type Opcode = Int
 
@@ -256,33 +255,73 @@ bcRead filename = (map fromIntegral <$> un32) . decode <$> BS.readFile filename
 runBC :: (MonadFD4 m) => Bytecode -> m ()
 runBC bc = run bc [] []
 
+addToStack :: (MonadFD4 m) => Stack -> m Stack
+addToStack s = do changeMaxStack $ length s
+                  return s
+
 
 run :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
 run ck@(ACCESS:i:c) e s = do  printState ck e s
-                              run c e ((e!!i):s)
+                              addOp 
+                              addToStack newStack
+                              -- entiendo que podríamos hacer algo como
+                              -- addToStack newStack >>= run c e
+                              run c e newStack
+                              where newStack = (e!!i):s
+
 run ck@(CONST:n:c) e s = do printState ck e s
-                            run c e (Natural n:s)
+                            addOp 
+                            addToStack newStack
+                            run c e newStack
+                            where newStack = (Natural n:s)
+
 run ck@(ADD:c) e ss@(Natural n:Natural m:s) = do  printState ck e ss
-                                                  run c e (Natural (m+n):s)
+                                                  addOp 
+                                                  addToStack newStack
+                                                  run c e newStack
+                                                  where newStack = (Natural (m+n):s)
+
 run ck@(SUB:c) e ss@(Natural y:Natural x:s) = do  printState ck e ss
-                                                  run c e (Natural (max (x-y) 0):s)
+                                                  addOp 
+                                                  addToStack newStack
+                                                  run c e newStack
+                                                  where newStack = (Natural (max (x-y) 0):s)
+
 run ck@(CALL:c) e ss@(v:Fun ef cf:s) = do   printState ck e ss
-                                            run cf (v:ef) (RetAd e c:s)
+                                            addOp 
+                                            addClosure 
+                                            addToStack newStack
+                                            run cf (v:ef) newStack
+                                            where newStack = (RetAd e c:s)
+
 run ck@(FUNCTION:size:c) e s = do printState ck e s
                                   printState (drop size c) e (Fun e cf:s)
-                                  run (drop size c) e (Fun e cf:s)
-  where cf = take size c
+                                  addOp 
+                                  addClosure
+                                  addToStack newStack
+                                  run (drop size c) e newStack
+                                  where cf = take size c
+                                        newStack = (Fun e cf:s)
+
 run ck@(PRINTN:c) e ss@(Natural n:s) = do   printState ck e ss
                                             printFD4 (show n)
-                                            run c e (Natural n:s)
+                                            addOp -- no hacemos el addToStack porque no cambia el stack
+                                            run c e ss  
+                                          
 run ck@(PRINT:c) e s = do printState ck e s
                           printFD4NoNewLine strToPrint
+                          addOp 
                           run cDropped e s
-  where strToPrint = bc2string (takeUntilNull c)  -- takeUntilNull == takeWhile  (/= NULL) ??
-        cDropped = dropUntilNull c                -- dropUntilNull == dropWhile  (/= NULL) ??
+                          where strToPrint = bc2string (takeUntilNull c)  -- takeUntilNull == takeWhile  (/= NULL) ??
+                                cDropped = dropUntilNull c                -- dropUntilNull == dropWhile  (/= NULL) ??
+
 run ck@(DROP:c) (v:e) s = do  printState ck (v:e) s
+                              addOp 
                               run c e s
+
 run ck@(SHIFT:c) e ss@(v:s) = do  printState ck e ss
+                                  addOp 
+                                  addToStack s -- medio que no tiene sentido, pq nunca va a ser mayor pero meh
                                   run c (v:e) s
 {-
 run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) =
@@ -296,14 +335,18 @@ run ck@(JUMP:lenTrue:c) e ss@(Natural n:s) =
             cCommon   = drop (head cDropped +1) cDropped
             cOnlyTrue = take lenTrue c ++ cCommon
 -}
-run (JUMP:len:c)  e            s  = run (drop len c) e s
-run (CJUMP:len:c) e (Natural n:s) = if n == 0 then run c e s
-                                              else run (drop (len+2) c) e s
+run (JUMP:len:c)  e            s  = addOp >> run (drop len c) e s
+run (CJUMP:len:c) e (Natural n:s) = addOp >> if n == 0  then run c e s
+                                                        else run (drop (len+2) c) e s
 run ck@(FIX:c) e ss@(Fun env cf:s) = do printState ck e ss
-                                        run c e (Fun ef cf:s)
+                                        addOp 
+                                        addClosure 
+                                        addToStack newStack
+                                        run c e newStack 
                                         where ef = Fun ef cf : env
-run (RETURN:_) _ ss@(v:RetAd e c:s) = run c e (v:s)
-run (TAILCALL:_) env (v:Fun ef cf:s) = run cf (v:ef) s
+                                              newStack = (Fun ef cf:s)
+run (RETURN:_) _ ss@(v:RetAd e c:s) = addOp >> addToStack (v:s) >>= run c e -- acá si lo hago, porque soy pro-programmer de haskellcinho
+run (TAILCALL:_) env (v:Fun ef cf:s) = addOp >> run cf (v:ef) s
 run ck@[STOP] e s = do  printState ck e s
                         -- printFD4 $ "Finnnn: " ++ showVal s
                         return ()
@@ -330,21 +373,21 @@ dropUntilNull (c:cs) = case c of
 bccWithStop :: Term -> Bytecode
 bccWithStop t = bcc t ++ [STOP]
 
-testBC :: Term -> IO ()
-testBC t = do res <- runFD4 ( printFD4 $ showBC (bccWithStop t)) (Conf False Interactive)
-              case res of (Right r) -> print r
-                          (Left _) -> print "Errorrrrrr"
+-- testBC :: Term -> IO ()
+-- testBC t = do res <- runFD4 ( printFD4 $ showBC (bccWithStop t)) (Conf False Interactive)
+--               case res of (Right r) -> print r
+--                           (Left _) -> print "Errorrrrrr"
 
-testRun :: Term -> IO ()
-testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
-                case resRun of (Right r) -> print r
-                               (Left _)  -> print "Error"
+-- testRun :: Term -> IO ()
+-- testRun t = do  resRun <- runFD4 (testRun' t) (Conf False Interactive)
+--                 case resRun of (Right r) -> print r
+--                                (Left _)  -> print "Error"
 
-testRun' :: MonadFD4 m => Term -> m ()
-testRun' t = do let bc = bccWithStop t
-                -- printFD4 $ rawBC2string bc
-                printFD4 "Comienza el run:"
-                runBC bc
+-- testRun' :: MonadFD4 m => Term -> m ()
+-- testRun' t = do let bc = bccWithStop t
+--                 -- printFD4 $ rawBC2string bc
+--                 printFD4 "Comienza el run:"
+--                 runBC bc
 
 printState :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
 printState c e s = do

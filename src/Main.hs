@@ -109,6 +109,7 @@ compile f = do
     let gNames = map (\d -> d.name) gdecls
     let gdeclReplaced = map (global2free gNames) gdecls
     mustOptimize <- getOpt
+    -- let gdeclReplaced = if mustOptimize then optim gdeclReplaced else gdeclReplaced
     -- when mustOptimize $ saveTermBeforeOptimization gdeclReplaced
     initCompiling <- liftIO getCurrentTime
     -- when mustOptimize $ do initCompiling <- liftIO getCurrentTime
@@ -124,6 +125,7 @@ compile f = do
         printFD4 code
         liftIO $ ccWrite code newFile
       _ -> abort "Modo de compilación de archivo incorrecto"
+    printProfile
     when mustOptimize $ do  endCompiling <- liftIO getCurrentTime
                             -- printFD4 $ "Tiempo consumido en compilación de: " ++ show (diffUTCTime endCompiling initCompiling)
                             return ()
@@ -136,6 +138,7 @@ runVM f = do
   bc <- liftIO $ bcRead f
   runBC bc
   endTime <- liftIO getCurrentTime
+  printProfile
   -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (diffUTCTime endTime initTime)
   return ()
 
@@ -201,7 +204,7 @@ compileFile f = do
   optDecls <- if mustOptimize 
       then do initCompiling <- liftIO getCurrentTime
               -- saveTermBeforeOptimization gdeclReplaced
-              deadCodeElimination
+              -- deadCodeElimination
               endCompiling <- liftIO getCurrentTime
               -- printFD4 $ "Tiempo consumido en deadCode: " ++ show (diffUTCTime endCompiling initCompiling)
               return handleDecl
@@ -259,6 +262,7 @@ handleDeclaration d = do
 
 returnUnit :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m ()
 returnUnit debugging d f = do evalAndAdd debugging d f
+                              -- printProfile
                               return ()
 
 evalAndAdd :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m (C.Decl C.TTerm)

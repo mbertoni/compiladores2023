@@ -38,7 +38,8 @@ module MonadFD4
     addStep,
     addOp,
     addClosure,
-    changeMaxStack
+    changeMaxStack,
+    printProfile
   )
 where
 

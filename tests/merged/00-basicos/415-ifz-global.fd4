@@ -1,0 +1,5 @@
+let (zero:Nat) = 9 - 9
+let (uno :Nat) = 9 - 8
+
+let (tc9:Nat) = ifz zero then 1 else 2
+let (tc10:Nat) = ifz uno then 1 else 2

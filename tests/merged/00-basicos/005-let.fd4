@@ -1,0 +1,1 @@
+let (tc3:Nat) = let (x:Nat) = 4 in x + 4

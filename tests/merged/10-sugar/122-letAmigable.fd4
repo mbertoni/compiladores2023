@@ -1,0 +1,2 @@
+let (f100:Nat) = fun (x:Nat) -> (x + 2) 
+let print100:Nat = print "f 98 = " (f100 98)

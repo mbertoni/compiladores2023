@@ -1,0 +1,10 @@
+let rec prod1 (acum:Nat) (cont:Nat) (x:Nat) (y:Nat) : Nat = 
+    print "Im in: "
+    (ifz (x - cont) 
+            then (print "acum = " acum)
+            else (prod1 (acum+y) (cont+1) x y)
+    )
+
+
+let prod (x:Nat) (y:Nat) :Nat = (prod1 0 0 x y)
+let prod43:Nat = print "4 x 3 = " (prod 4 3)

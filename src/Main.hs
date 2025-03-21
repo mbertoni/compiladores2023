@@ -119,13 +119,13 @@ compile f = do
         let bc = byteCompileModule gdeclReplaced
         let newFile = dropExtension f ++ ".bc32"
         liftIO $ bcWrite bc newFile
+        -- printProfile
       CC -> do 
         let code = (ir2C . IrDecls . runCC) gdeclReplaced
         let newFile = dropExtension f ++ ".c"
         printFD4 code
         liftIO $ ccWrite code newFile
       _ -> abort "Modo de compilación de archivo incorrecto"
-    printProfile
     when mustOptimize $ do  endCompiling <- liftIO getCurrentTime
                             -- printFD4 $ "Tiempo consumido en compilación de: " ++ show (diffUTCTime endCompiling initCompiling)
                             return ()
@@ -137,8 +137,8 @@ runVM f = do
   initTime <- liftIO getCurrentTime
   bc <- liftIO $ bcRead f
   runBC bc
-  endTime <- liftIO getCurrentTime
   printProfile
+  endTime <- liftIO getCurrentTime
   -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (diffUTCTime endTime initTime)
   return ()
 
@@ -208,7 +208,8 @@ compileFile f = do
               endCompiling <- liftIO getCurrentTime
               -- printFD4 $ "Tiempo consumido en deadCode: " ++ show (diffUTCTime endCompiling initCompiling)
               return handleDecl
-      else return handleDecl            
+      else return handleDecl      
+  printProfile
   setInter i
 
 parseIO :: (MonadFD4 m) => String -> P a -> String -> m a

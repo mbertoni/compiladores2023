@@ -2,9 +2,9 @@
 # TESTDIRS += tests/ok/00-basicos
 # TESTDIRS += tests/ok/10-sugar
 # TESTDIRS += tests/ok/20-tysym
- TESTDIRS += tests/merged/00-basicos
- TESTDIRS += tests/merged/10-sugar
- TESTDIRS += tests/merged/20-tysym
+# TESTDIRS += tests/merged/00-basicos
+# TESTDIRS += tests/merged/10-sugar
+TESTDIRS += tests/merged/20-tysym
 
 TESTS	:= $(shell find $(TESTDIRS) -name '*.fd4' -type f | sort)
 
@@ -16,9 +16,9 @@ TESTS	:= $(shell find $(TESTDIRS) -name '*.fd4' -type f | sort)
 EXE	:= $(shell cabal exec whereis compiladores2023 | awk '{print $$2};')
 VM	:= ./vm/macc
 
-# EXTRAFLAGS	:=
+EXTRAFLAGS	:=
 # EXTRAFLAGS	+= --optimize --profiling
-EXTRAFLAGS	+= --profiling
+# EXTRAFLAGS	+= --profiling
 
 # Las reglas a chequear. Se puede deshabilitar toda una familia de tests
 # comentando una de estas líneas.

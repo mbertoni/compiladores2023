@@ -109,13 +109,13 @@ addClosure = do
   return ()
 
 printProfile :: (MonadFD4 m) => m ()
-printProfile = do
-  profiler <- getProfiling
-  Control.Monad.when profiler $ do  Prof steps operations stack closures <- getProfiler
-                                    printFD4 $ "Numero de pasos: " ++ show steps
-                                    printFD4 $ "Numero de operaciones: " ++ show operations
-                                    printFD4 $ "Tamaño maximo de stack: " ++ show stack
-                                    printFD4 $ "Numero de clausuras: " ++ show closures
+printProfile =  --return ()
+      do profiler <- getProfiling
+         Control.Monad.when profiler $ do Prof steps operations stack closures <- getProfiler
+                                          printFD4 $ "Numero de pasos: " ++ show steps
+                                          printFD4 $ "Numero de operaciones: " ++ show operations
+                                          printFD4 $ "Tamaño maximo de stack: " ++ show stack
+                                          printFD4 $ "Numero de clausuras: " ++ show closures
 
 
 getOpt :: (MonadFD4 m) => m Bool

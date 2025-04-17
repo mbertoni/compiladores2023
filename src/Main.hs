@@ -137,7 +137,7 @@ runVM f = do
   initTime <- liftIO getCurrentTime
   bc <- liftIO $ bcRead f
   runBC bc
-  printProfile
+  -- printProfile
   endTime <- liftIO getCurrentTime
   -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (diffUTCTime endTime initTime)
   return ()

@@ -1,7 +1,7 @@
 # TESTDIRS += tests/analizando/
-# TESTDIRS += tests/ok/00-basicos
-# TESTDIRS += tests/ok/10-sugar
-# TESTDIRS += tests/ok/20-tysym
+TESTDIRS += tests/ok/00-basicos
+TESTDIRS += tests/ok/10-sugar
+TESTDIRS += tests/ok/20-tysym
 # TESTDIRS += tests/merged/00-basicos
 # TESTDIRS += tests/merged/10-sugar
 TESTDIRS += tests/merged/20-tysym
@@ -52,6 +52,9 @@ endif
 # Esto cancela la regla por defecto de make para generar un .out
 # copiando el archivo original.
 %.out: %
+
+%.opt_out: % $(EXE)
+	$(Q)$(EXE) $(EXTRAFLAGS) --typecheck --optimize $< > $@
 
 # Aceptar la salida de los programas como correcta. Copia de la salida
 # real del evaluador hacia los .out que contienen la salida esperada.
@@ -158,6 +161,7 @@ accept: $(patsubst %,%.accept,$(TESTS))
 # Estas directivas indican que NO se borren los archivos intermedios,
 # así podemos examinarlos, particularmente cuando algo no anda.
 # entiendo que esto nos conviene borrarlo igual, cuando todo quede andando
+.SECONDARY: $(patsubst %,%.opt_out,$(TESTS))
 .SECONDARY: $(patsubst %,%.actual_out_eval,$(TESTS))
 .SECONDARY: $(patsubst %,%.actual_out_cek,$(TESTS))
 .SECONDARY: $(patsubst %.fd4,%.bc32,$(TESTS))

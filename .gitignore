@@ -9,3 +9,4 @@ Teoría/*
 **/*.exe
 **/*.fd4.actual_out*
 **/*.fd4.check_*
+**/*.fd4.opt_out

@@ -46,7 +46,7 @@ executable compiladores2023
     TypeChecker
 
   hs-source-dirs:     src
-  default-language:   GHC2024
+  default-language:   GHC2021
   ghc-options:
     -haddock -threaded -rtsopts -with-rtsopts=-N -fwarn-tabs
     -fwarn-unused-imports -fwarn-missing-signatures
@@ -57,6 +57,7 @@ executable compiladores2023
     OverloadedStrings
     PartialTypeSignatures
     RecordWildCards
+    LambdaCase
 
   other-extensions:
     GADTs

@@ -299,7 +299,7 @@ declaration = letDecl <|> typeDecl
 program :: P [Declaration]
 program = many declaration
 
--- | Parsea una declaración a un término
+-- | Parsea una declaración o un término
 -- Útil para las sesiones interactivas
 declarationOrTerm :: P (Either Declaration Term)
 declarationOrTerm =

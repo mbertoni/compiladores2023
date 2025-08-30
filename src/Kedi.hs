@@ -1,6 +1,6 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+-- {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-{-# HLINT ignore "Use record patterns" #-}
+-- {-# HLINT ignore "Use record patterns" #-}
 
 -- |
 -- Module      : PPrint

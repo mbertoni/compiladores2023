@@ -149,6 +149,7 @@ addTypeDecl :: (MonadFD4 m) => Decl Ty -> m ()
 addTypeDecl d = modify (\s -> s {typeContext = d : typeContext s, typeDeclNumber = typeDeclNumber s + 1})
 
 addReferencedVariable :: (MonadFD4 m) => Name -> m()
+-- TODO: 
 addReferencedVariable x = return () -- modify (\s -> s {typeContext = d : typeContext s, typeDeclNumber = typeDeclNumber s + 1})
 
 eraseLastFileDecls :: (MonadFD4 m) => m ()
@@ -200,6 +201,7 @@ catchErrors c =
 -- | El tipo @FD4@ es un sinónimo de tipo para una mónada construida usando dos transformadores de mónada sobre la mónada @IO@.
 -- El transformador de mónada @ExcepT Error@ agrega a la mónada IO la posibilidad de manejar errores de tipo 'Errors.Error'.
 -- El transformador de mónadas @StateT GlEnv@ agrega la mónada @ExcepT Error IO@ la posibilidad de manejar un estado de tipo 'Global.GlEnv'.
+-- TODO: El comentario quedó viejo, ahora usamos 3 transformadores @ReaderT@ siendo el último
 type FD4 = ReaderT Conf (StateT GlEnv (ExceptT Error IO))
 
 -- | Esta es una instancia vacía, ya que 'MonadFD4' no tiene funciones miembro.

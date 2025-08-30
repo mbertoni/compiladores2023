@@ -1,0 +1,7 @@
+1. Hay que responer preguntas?
+
+2. Parse.langDef -> buscar cómo se llama el campo de multiLineComments
+
+3. Revisar Elab.term (goTerm)
+
+4. MonadFD4.addReferencedVariable

@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
 {-# HLINT ignore "Use <$>" #-}
 
 -- |
@@ -8,18 +9,21 @@
 -- License     : GPL-3
 -- Maintainer  : mauro@fceia.unr.edu.ar
 -- Stability   : experimental
-module Parse (P, term, program, declarationOrTerm, whiteSpace, runP) where
+module Parse (P, term, program, declarationOrTerm, ws, runP) where
 
 import Common
 import Control.Monad.Identity (Identity)
 import Data.Char
 import Data.Composition
+import Data.List
 import Data.List.NonEmpty (fromList)
+import Data.Maybe
 import Surf
 import Text.Parsec hiding (parse, runP)
 import Text.Parsec.Expr qualified as Ex
+import Text.Parsec.Language
+import Text.Parsec.Token
 import Text.Parsec.Token qualified as Tok
-import Text.ParserCombinators.Parsec.Language
 import Prelude
 
 type P = Parsec String ()
@@ -35,7 +39,15 @@ lexer = Tok.makeTokenParser langDef
 langDef :: LanguageDef u
 langDef =
   emptyDef
-    { commentLine = "#",
+    { caseSensitive = True,
+      commentStart = "#-",
+      commentEnd = "-#",
+      commentLine = "#",
+      nestedComments = True,
+      identStart = letter,
+      identLetter = alphaNum <|> oneOf "_",
+      opStart = langDef.opLetter,
+      opLetter = oneOf $ nub . concat $ langDef.reservedOpNames,
       reservedNames =
         [ "let",
           "rec",
@@ -47,26 +59,57 @@ langDef =
           "end",
           "ifz",
           "print",
-          "Nat",
-          "type"
+          "type",
+          "Nat"
         ],
-      reservedOpNames = ["->", ":", ";", "=", "+", "-", "!"]
+      reservedOpNames =
+        [ "->",
+          ":",
+          ";",
+          "=",
+          "+",
+          "-",
+          "!"
+        ]
     }
 
-whiteSpace :: P ()
-whiteSpace = Tok.whiteSpace lexer
+ws :: P ()
+ws = lexer.whiteSpace
 
-natural :: P Integer
-natural = Tok.natural lexer
+nat :: P Integer
+nat = lexer.natural
 
-parens :: P a -> P a
-parens = Tok.parens lexer
+sLit :: P String
+sLit = lexer.stringLiteral
 
-reserved :: String -> P ()
-reserved = Tok.reserved lexer
+par :: forall a. P a -> P a
+par = parens lexer -- lexer.parens
 
-reservedOp :: String -> P ()
-reservedOp = Tok.reservedOp lexer
+res :: String -> P ()
+res = lexer.reserved
+
+op :: String -> P ()
+op = lexer.reservedOp
+
+upId :: P String
+upId = do
+  s <- Tok.identifier lexer
+  case listToMaybe s of
+    Nothing -> fail "empty identifier"
+    Just c ->
+      if isUpper c
+        then return s
+        else fail "expecting uppercase id"
+
+lowId :: P String
+lowId = do
+  s <- Tok.identifier lexer
+  case listToMaybe s of
+    Nothing -> fail "empty identifier"
+    Just c ->
+      if isUpper c
+        then fail "expecting lowercase id"
+        else return s
 
 -----------------------
 -- Parsers
@@ -78,44 +121,36 @@ getPos = do
   return $ Pos (sourceLine pos) (sourceColumn pos)
 
 numLiteral :: P Literal
-numLiteral = N <$> natural
+numLiteral = N <$> nat
 
-stringLiteral :: P Literal
-stringLiteral = S <$> Tok.stringLiteral lexer
+strLiteral :: P Literal
+strLiteral = S <$> sLit
 
 literal :: P Literal
-literal = numLiteral <|> stringLiteral
+literal = numLiteral <|> strLiteral
 
 varIdent :: P Ident
-varIdent = do
-  s <- Tok.identifier lexer
-  if isUpper (head s)
-    then fail "expecting lowercase id"
-    else return (VarId s)
+varIdent = VarId <$> lowId
 
 tyIdent :: P Ident
-tyIdent = do
-  s <- Tok.identifier lexer
-  if isUpper (head s)
-    then return (TyId s)
-    else fail "expecting uppercase id"
+tyIdent = TyId <$> upId
 
 binder :: Par -> P Binder
 binder p = parens' $ do
   x <- varIdent
-  reservedOp ":"
+  op ":"
   tau <- ty
   return $ bind x tau
   where
     parens' =
       case p of
-        P -> parens
+        P -> par
         NP -> id
 
 multi :: P Multi
-multi = parens $ do
+multi = par $ do
   xs <- fromList <$> many1 varIdent
-  reservedOp ":"
+  op ":"
   tau <- ty
   return $ bind xs tau
 
@@ -125,20 +160,21 @@ ty = Ex.buildExpressionParser opTable ty' <?> "type"
     opTable :: [[Ex.Operator String () Identity Ty]]
     opTable = [[binary "->" Arrow Ex.AssocRight]]
       where
-        binary :: String -> (Ty -> Ty -> Ty) -> Ex.Assoc -> Ex.Operator String () Identity Ty
-        binary s f = Ex.Infix $ reservedOp s >> return f
+        binary ::
+          String -> (Ty -> Ty -> Ty) -> Ex.Assoc -> Ex.Operator String () Identity Ty
+        binary s f = Ex.Infix $ lexer.reservedOp s >> return f
 
     ty' :: P Ty
-    ty' = nat <|> parTy <|> alias
+    ty' = nat_t <|> parTy <|> alias
       where
-        nat :: P Ty
-        nat = reserved "Nat" >> return Nat <?> "nat"
+        nat_t :: P Ty
+        nat_t = res "Nat" >> return Nat <?> "nat"
 
         alias :: P Ty
         alias = Alias <$> tyIdent <?> "alias"
 
         parTy :: P Ty
-        parTy = ParTy <$> parens ty <?> "party"
+        parTy = ParTy <$> par ty <?> "party"
 
 term :: P Term
 term = Ex.buildExpressionParser opTable term' <?> "term"
@@ -155,18 +191,23 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
       ]
       where
         unary :: String -> UnaryOp -> Ex.Operator String () Identity Term
-        unary s op = Ex.Prefix $ reservedOp s >> return (T . UOp op)
+        unary s o = Ex.Prefix $ op s >> return (T . UOp o)
 
         binary :: String -> BinaryOp -> Ex.Assoc -> Ex.Operator String () Identity Term
-        binary s op = Ex.Infix $ reservedOp s >> return (T .: BOp op)
+        binary s o = Ex.Infix $ op s >> return (T .: BOp o)
 
     atom :: P Term
     atom =
-      T . Lit <$> literal -- <*> getPos
-        <|> T . Par <$> parens term
-        <|> pnt
-        <|> T . Var <$> varIdent -- <*> getPos
-        <?> "atom"
+      T . Lit
+        <$> literal -- <*> getPos
+          <|> T
+          . Par
+        <$> par term
+          <|> pnt
+          <|> T
+          . Var
+        <$> varIdent -- <*> getPos
+          <?> "atom"
 
     -- \| Nota el parser app también parsea un solo atom.
     app :: P Term
@@ -177,42 +218,42 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
 
     pnt :: P Term
     pnt = do
-      reserved "print"
-      str <- option (S "") stringLiteral
+      res "print"
+      str <- option (S "") strLiteral
       a <- atom
       return . T $ Pnt str a
 
     fun :: P Term
     fun = do
-      reserved "fun"
+      res "fun"
       bs <- fromList <$> many1 multi
-      reservedOp "->"
+      op "->"
       t <- term
       return . T $ Fun bs t
 
     ifz :: P Term
     ifz = do
-      reserved "ifz"
+      res "ifz"
       c <- term
-      reserved "then"
+      res "then"
       t <- term
-      reserved "else"
+      res "else"
       e <- term
       return . T $ IfZ c t e
 
     fix :: P Term
     fix = do
-      reserved "fix"
+      res "fix"
       f <- binder P
       x <- binder P
       bs <- many multi
-      reservedOp "->"
+      op "->"
       t <- term
       return . T $ Fix f x bs t
 
     let_ :: P Term
     let_ = do
-      reserved "let"
+      res "let"
       core <|> rec_ <|> nRec
       where
         core :: P Term
@@ -223,11 +264,11 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
 
         rec_ :: P Term
         rec_ = do
-          reserved "rec"
+          res "rec"
           f <- varIdent
           x <- multi
           bs <- many multi
-          reservedOp ":"
+          op ":"
           tau <- ty
           (t, t') <- terms
           return . T $ Let NP (bind f tau) (Rec x) bs t t'
@@ -236,16 +277,16 @@ term = Ex.buildExpressionParser opTable term' <?> "term"
         nRec = do
           f <- varIdent
           bs <- many multi
-          reservedOp ":"
+          op ":"
           tau <- ty
           (t, t') <- terms
           return . T $ Let NP (bind f tau) NoRec bs t t'
 
         terms :: P (Term, Term)
         terms = do
-          reservedOp "="
+          op "="
           t <- term
-          reserved "in"
+          res "in"
           t' <- term
           return (t, t')
 
@@ -255,33 +296,33 @@ declaration = letDecl <|> typeDecl
   where
     typeDecl :: P Declaration
     typeDecl = do
-      reserved "type"
+      res "type"
       t <- tyIdent
-      reservedOp "="
+      op "="
       tau <- ty
       return $ TypeDecl (bind t tau)
 
     letDecl :: P Declaration
     letDecl = do
-      reserved "let"
+      res "let"
       core <|> rec_ <|> nRec
       where
         core :: P Declaration
         core = do
           b <- binder P
-          reservedOp "="
+          op "="
           t <- term
           return $ LetDecl P b NoRec [] t
 
         rec_ :: P Declaration
         rec_ = do
-          reserved "rec"
+          res "rec"
           f <- varIdent
           x <- multi
           bs <- many multi
-          reservedOp ":"
+          op ":"
           tau <- ty
-          reservedOp "="
+          op "="
           t <- term
           return $ LetDecl NP (bind f tau) (Rec x) bs t
 
@@ -289,9 +330,9 @@ declaration = letDecl <|> typeDecl
         nRec = do
           f <- varIdent
           bs <- many multi
-          reservedOp ":"
+          op ":"
           tau <- ty
-          reservedOp "="
+          op "="
           t <- term
           return $ LetDecl NP (bind f tau) NoRec bs t
 
@@ -303,12 +344,14 @@ program = many declaration
 -- Útil para las sesiones interactivas
 declarationOrTerm :: P (Either Declaration Term)
 declarationOrTerm =
-  Left <$> declaration
-    <|> Right <$> term
+  Left
+    <$> declaration
+      <|> Right
+    <$> term
 
 -- Corre un parser, chequeando que se pueda consumir toda la entrada
 runP :: P a -> String -> String -> Either ParseError a
-runP p s filename = runParser (whiteSpace *> p <* eof) () filename s
+runP p s filename = runParser (ws *> p <* eof) () filename s
 
 -- para debugging en uso interactivo (ghci)
 parse :: P a -> String -> a
@@ -317,5 +360,5 @@ parse p s = case runP p s "" of
   Left e -> error ("no parse: " ++ show s)
 
 -- Este para probar en ghci
-test :: (Show a) => P a -> String -> IO ()
-test parser = parseTest (Parse.whiteSpace *> parser <* eof)
+test :: Show a => P a -> String -> IO ()
+test parser = parseTest (ws *> parser <* eof)

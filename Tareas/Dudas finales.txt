@@ -5,3 +5,8 @@
 3. Revisar Elab.term (goTerm)
 
 4. MonadFD4.addReferencedVariable
+
+5. Opcionales ByteCode (8bit + ack 3 11)
+
+6. Maccina hay 3 opcionales -> chequear
+

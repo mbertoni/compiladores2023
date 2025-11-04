@@ -9,21 +9,22 @@ module Scaffolding where
   TODO
 -}
 
-import Parse
 -- import MonadFD4
 -- import Global
-import Text.Parsec
+
+import ByteCompile
 import Common
 import Core
-import ByteCompile
+import Parse
+import Text.Parsec
+
 -- import Errors
--- |
+
 bcc :: Term -> Bytecode
 bcc = abort "usar la de ByteCompile"
 
 -- test_bcc :: TTerm -> IO (Either Errors.Error ())
 -- test_bcc tt = runFD4 (printFD4 $ showBC (bcc tt)) $ Conf False Interactive
 
--- |
-test_parser :: (Show a) => P a -> String -> IO ()
-test_parser p = parseTest (Parse.whiteSpace *> p <* eof)
+test_parser :: Show a => P a -> String -> IO ()
+test_parser p = parseTest (Parse.ws *> p <* eof)

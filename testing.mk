@@ -147,7 +147,7 @@ accept: $(patsubst %,%.accept,$(TESTS))
 	$(Q)$(EXE) $(EXTRAFLAGS) --cc $< > /dev/null
 
 %.exe: %.c runtime.c
-	gcc -fpermissive $^ -lgc -o $@
+	@gcc $^ -lgc -Wno-int-conversion -o $@ 2>/dev/null
 
 %.fd4.actual_out_exe: %.exe
 	$(Q)$< > $@

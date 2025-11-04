@@ -1,6 +1,6 @@
 all: macc
 
-%.o: CFLAGS+= -Wall -pedantic
+%.o: CFLAGS+= -Wall -Wextra -std=c11
 macc: LDLIBS +=-lgc
 	
 

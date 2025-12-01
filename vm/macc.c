@@ -141,6 +141,7 @@ void run(code init_c)
 	code c = init_c;
 	env e = NULL;
 	value *s = stack;
+	uint64_t instructions_count = 0;
 
 	/*
 	 * Usando la pila como un verdadero C Hacker
@@ -197,6 +198,7 @@ void run(code init_c)
 		}
 
 		/* Consumimos un opcode y lo inspeccionamos. */
+		instructions_count++;
 		switch(*c++) {
 		case ACCESS: {
 			int i = *c++;
@@ -333,6 +335,9 @@ void run(code init_c)
 		}
 
 		case STOP: {
+			if (getenv("MACC_PROFILE")) {
+				fprintf(stderr, "Instructions: %lu\n", (unsigned long)instructions_count);
+			}
 			return;
 		}
 

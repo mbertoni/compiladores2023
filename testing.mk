@@ -2,6 +2,8 @@
 TESTDIRS += tests/ok/00-basicos
 TESTDIRS += tests/ok/10-sugar
 TESTDIRS += tests/ok/20-tysym
+TESTDIRS += tests/ok/30-optim
+TESTDIRS += tests/ok/40-tailcall
 # TESTDIRS += tests/merged/00-basicos
 # TESTDIRS += tests/merged/10-sugar
 TESTDIRS += tests/merged/20-tysym

@@ -1,0 +1,4 @@
+let x : Nat = 5
+let y : Nat = 10
+let z : Nat = x + y
+let result : Nat = z

@@ -223,7 +223,7 @@ moduleIntoTerm [] = abort "Módulo vacío"
 moduleIntoTerm [dtt] = dtt.body
 moduleIntoTerm (dtt:dtts) = Let i dtt.name ty dtt.body rest
           where
-            rest = close dtt.name $ moduleIntoTerm dtts
+            rest = close dtt.name $ replaceGlobal [dtt.name] $ moduleIntoTerm dtts
             ty = getTy dtt.body
             i = getInfo dtt.body
 
@@ -370,8 +370,15 @@ dropUntilNull (c:cs) = case c of
                         NULL -> cs
                         _ -> dropUntilNull cs
 
+-- | Elimina DROPs innecesarios antes de STOP
+removeDropsBeforeStop :: Bytecode -> Bytecode
+removeDropsBeforeStop [] = []
+removeDropsBeforeStop [STOP] = [STOP]
+removeDropsBeforeStop (DROP:STOP:rest) = STOP : removeDropsBeforeStop rest
+removeDropsBeforeStop (x:xs) = x : removeDropsBeforeStop xs
+
 bccWithStop :: Term -> Bytecode
-bccWithStop t = bcc t ++ [STOP]
+bccWithStop t = removeDropsBeforeStop $ bcc t ++ [STOP]
 
 -- testBC :: Term -> IO ()
 -- testBC t = do res <- runFD4 ( printFD4 $ showBC (bccWithStop t)) (Conf False Interactive)

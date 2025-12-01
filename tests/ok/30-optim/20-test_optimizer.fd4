@@ -1,0 +1,5 @@
+let x : Nat = 3
+let y : Nat = x + 0
+let w : Nat = 2 + 3
+let v : Nat = 0 + w  
+let result : Nat = print v

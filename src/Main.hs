@@ -9,25 +9,31 @@ module Main where
 
 -- import Control.Monad
 
-import qualified CEK
+import ByteCompile (bcRead, bcWrite, byteCompileModule, global2free, runBC)
+import C (ir2C)
+import CEK qualified
+import ClosureConvert (runCC)
+import Common (abort)
 import Control.Exception (IOException, catch)
+import Control.Monad (when)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.Trans
-import qualified Core as C
+import Core qualified as C
 import Data.Char (isSpace)
 import Data.List (intercalate, isPrefixOf, nub)
-import Data.Time (getCurrentTime)
 import Data.Maybe (fromMaybe)
-import Elab (declaration, term, ident)
+import Data.Time (getCurrentTime)
+import Elab (declaration, ident, term)
 import Errors
-import Common (abort)
 import Eval (eval)
 import Global
+import IR
 import MonadFD4
+import Optimizer
 import Options.Applicative
 import PPrint (ppTTerm, ppTermDecl, ppTy, ppTypeDecl)
-import Parse (P, runP, declarationOrTerm, program, term)
-import qualified Surf as S
+import Parse (P, declarationOrTerm, program, runP, term)
+import Surf qualified as S
 import System.Console.Haskeline
   ( InputT,
     defaultSettings,
@@ -35,39 +41,32 @@ import System.Console.Haskeline
     runInputT,
   )
 import System.Exit (ExitCode (ExitFailure), exitWith)
+import System.FilePath (dropExtension)
 import System.IO (hPrint, hPutStrLn, stderr)
 import TypeChecker (tc, tcDecl)
-import Control.Monad ( when )
-import ByteCompile ( bcRead, bcWrite, byteCompileModule, global2free, runBC )
-import System.FilePath (dropExtension)
-import IR
-import C ( ir2C )
-import ClosureConvert ( runCC )
-import Optimizer 
 
 prompt :: String
 prompt = "FD4> "
-
 
 -- | Parser de banderas
 parseMode :: Parser (Mode, Bool, Bool)
 parseMode =
   (,,)
-    <$> ( flag  Interactive Interactive   (long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
-      <|> flag' InteractiveCEK            (long "icek"        <> short 'k' <> help "Ejecutar de forma interactiva en la CEK")
-      <|> flag' Bytecompile               (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
-      <|> flag' Typecheck                 (long "typecheck"   <> short 't' <> help "Chequear tipos e imprimir el término")
-      <|> flag  Eval Eval                 (long "eval"        <> short 'e' <> help "Evaluar un programa")
-      <|> flag  CEK CEK                   (long "cek"         <> short 'k' <> help "Evaluar un programa con la CEK")
-      <|> flag' RunVM                     (long "runVM"       <> short 'r' <> help "Ejecutar bytecode en la BVM")
-      <|> flag' CC                        (long "cc"          <> short 'c' <> help "Compilar a código C") 
+    <$> ( flag Interactive Interactive (long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
+            <|> flag' InteractiveCEK (long "icek" <> short 'k' <> help "Ejecutar de forma interactiva en la CEK")
+            <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
+            <|> flag' Typecheck (long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
+            <|> flag Eval Eval (long "eval" <> short 'e' <> help "Evaluar un programa")
+            <|> flag CEK CEK (long "cek" <> short 'k' <> help "Evaluar un programa con la CEK")
+            <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
+            <|> flag' CC (long "cc" <> short 'c' <> help "Compilar a código C")
         )
     -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonización")
     -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
     -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
     -- <*> pure False
 
--- reemplazar por la siguiente línea para habilitar opción
+    -- reemplazar por la siguiente línea para habilitar opción
     <*> flag False True (long "optimize" <> short 'o' <> help "Optimizar código")
     <*> flag False True (long "profiling" <> short 'p' <> help "Usando el profiler")
 
@@ -90,49 +89,48 @@ main = execParser opts >>= go
         )
 
     go :: (Mode, Bool, Bool, [FilePath]) -> IO ()
-    go (InteractiveCEK, opt, prof, files) = runOrFail (Conf opt prof Interactive)  $ runInputT defaultSettings (repl files)
-    go (Interactive   , opt, prof, files) = runOrFail (Conf opt prof Interactive)  $ runInputT defaultSettings (repl files)
-    go (Bytecompile   , opt, prof, files) = runOrFail (Conf opt prof Bytecompile)  $ mapM_ compile files
-    go (RunVM         , opt, prof, files) = runOrFail (Conf opt prof RunVM)        $ mapM_ runVM files
-    go (CC            , opt, prof, files) = runOrFail (Conf opt prof CC)           $ mapM_ compile files
-    go (m             , opt, prof, files) = runOrFail (Conf opt prof m)            $ mapM_ compileFile files
+    go (InteractiveCEK, opt, prof, files) = runOrFail (Conf opt prof Interactive) $ runInputT defaultSettings (repl files)
+    go (Interactive, opt, prof, files) = runOrFail (Conf opt prof Interactive) $ runInputT defaultSettings (repl files)
+    go (Bytecompile, opt, prof, files) = runOrFail (Conf opt prof Bytecompile) $ mapM_ compile files
+    go (RunVM, opt, prof, files) = runOrFail (Conf opt prof RunVM) $ mapM_ runVM files
+    go (CC, opt, prof, files) = runOrFail (Conf opt prof CC) $ mapM_ compile files
+    go (m, opt, prof, files) = runOrFail (Conf opt prof m) $ mapM_ compileFile files
 
 compile :: (MonadFD4 m) => FilePath -> m ()
-compile f = do 
-    m <- getMode
-    decls <- loadFile f
-    initHandling <- liftIO getCurrentTime
-    mapM_ handleDeclaration decls
-    endHandling <- liftIO getCurrentTime
-    -- printFD4 $ "Tiempo consumido en handling " ++ show (diffUTCTime endHandling initHandling)
-    gdecls <- reverse <$> gets termEnvironment
-    let gNames = map (\d -> d.name) gdecls
-    let gdeclReplaced = map (global2free gNames) gdecls
-    mustOptimize <- getOpt
-    -- let gdeclReplaced = if mustOptimize then optim gdeclReplaced else gdeclReplaced
-    -- when mustOptimize $ saveTermBeforeOptimization gdeclReplaced
-    initCompiling <- liftIO getCurrentTime
-    -- when mustOptimize $ do initCompiling <- liftIO getCurrentTime
-    --                        return ()
-    case m of 
-      Bytecompile -> do 
-        let bc = byteCompileModule gdeclReplaced
-        let newFile = dropExtension f ++ ".bc32"
-        liftIO $ bcWrite bc newFile
-        -- printProfile
-      CC -> do 
-        let code = (ir2C . IrDecls . runCC) gdeclReplaced
-        let newFile = dropExtension f ++ ".c"
-        printFD4 code
-        liftIO $ ccWrite code newFile
-      _ -> abort "Modo de compilación de archivo incorrecto"
-    when mustOptimize $ do  endCompiling <- liftIO getCurrentTime
-                            -- printFD4 $ "Tiempo consumido en compilación de: " ++ show (diffUTCTime endCompiling initCompiling)
-                            return ()
+compile f = do
+  m <- getMode
+  decls <- loadFile f
+  initHandling <- liftIO getCurrentTime
+  mapM_ handleDeclaration decls
+  endHandling <- liftIO getCurrentTime
+  -- printFD4 $ "Tiempo consumido en handling " ++ show (diffUTCTime endHandling initHandling)
+  gdecls <- reverse <$> gets termEnvironment
+  let gNames = map (\d -> d.name) gdecls
+  let gdeclReplaced = map (global2free gNames) gdecls
+  mustOptimize <- getOpt
+  -- let gdeclReplaced = if mustOptimize then optim gdeclReplaced else gdeclReplaced
+  -- when mustOptimize $ saveTermBeforeOptimization gdeclReplaced
+  initCompiling <- liftIO getCurrentTime
+  -- when mustOptimize $ do initCompiling <- liftIO getCurrentTime
+  --                        return ()
+  case m of
+    Bytecompile -> do
+      let bc = byteCompileModule gdeclReplaced
+      let newFile = dropExtension f ++ ".bc32"
+      liftIO $ bcWrite bc newFile
+    -- printProfile
+    CC -> do
+      let code = (ir2C . IrDecls . runCC) gdeclReplaced
+      let newFile = dropExtension f ++ ".c"
+      printFD4 code
+      liftIO $ ccWrite code newFile
+    _ -> abort "Modo de compilación de archivo incorrecto"
+  when mustOptimize $ do
+    endCompiling <- liftIO getCurrentTime
+    -- printFD4 $ "Tiempo consumido en compilación de: " ++ show (diffUTCTime endCompiling initCompiling)
+    return ()
 
-
-
-runVM :: MonadFD4 m => FilePath -> m ()
+runVM :: (MonadFD4 m) => FilePath -> m ()
 runVM f = do
   initTime <- liftIO getCurrentTime
   bc <- liftIO $ bcRead f
@@ -201,14 +199,16 @@ compileFile f = do
   -- printFD4 $ "Tiempo consumido en handling " ++ show (diffUTCTime endHandling initHandling)
   handleDecl <- reverse <$> gets termEnvironment
   mustOptimize <- getOpt
-  optDecls <- if mustOptimize 
-      then do initCompiling <- liftIO getCurrentTime
-              -- saveTermBeforeOptimization gdeclReplaced
-              -- deadCodeElimination
-              endCompiling <- liftIO getCurrentTime
-              -- printFD4 $ "Tiempo consumido en deadCode: " ++ show (diffUTCTime endCompiling initCompiling)
-              return handleDecl
-      else return handleDecl      
+  optDecls <-
+    if mustOptimize
+      then do
+        initCompiling <- liftIO getCurrentTime
+        -- saveTermBeforeOptimization gdeclReplaced
+        -- deadCodeElimination
+        endCompiling <- liftIO getCurrentTime
+        -- printFD4 $ "Tiempo consumido en deadCode: " ++ show (diffUTCTime endCompiling initCompiling)
+        return handleDecl
+      else return handleDecl
   printProfile
   setInter i
 
@@ -232,56 +232,63 @@ handleDeclaration d = do
     Typecheck -> do
       f <- getLastFile
       when debugging $ printFD4 ("Chequeando tipos de " ++ f)
+      mustOpt <- getOpt -- Verificar si debemos optimizar
       case elaborated of
         Left (C.Decl p x tm) -> do
           when debugging $ printFD4 ("\nTypechecking")
           tt <- tcDecl (C.Decl p x tm)
-          addTermDecl tt
-          ppterm <- ppTermDecl tt
+          -- Aplicar optimizer si está habilitado
+          let optTerm = if mustOpt then optim tt else tt
+          addTermDecl optTerm
+          ppterm <- ppTermDecl optTerm
           printFD4 ppterm
         Right (C.Decl p x ty) -> do
           addTypeDecl (C.Decl p x ty)
           ppty <- ppTypeDecl (C.Decl p x ty)
           printFD4 ppty
-    evalMode -> 
-      case elaborated of 
+    evalMode ->
+      case elaborated of
         Right e -> addTypeDecl e
-        Left  e -> case evalMode of
-            Eval            -> returnUnit debugging e eval
-            CEK             -> returnUnit debugging e CEK.eval
-            Bytecompile     -> do tt <- tcDecl e
-                                  addTermDecl tt
-            CC              -> do tt <- tcDecl e
-                                  addTermDecl tt
-            Interactive     -> returnUnit debugging e eval
-            InteractiveCEK  -> return ()
-            RunVM           -> return ()
-            {-
-            Bytecompile8    -> do tt <- tcDecl (C.Decl p x tm)
-                                  addTermDecl tt
-            -}
+        Left e -> case evalMode of
+          Eval -> returnUnit debugging e eval
+          CEK -> returnUnit debugging e CEK.eval
+          Bytecompile -> do
+            tt <- tcDecl e
+            addTermDecl tt
+          CC -> do
+            tt <- tcDecl e
+            addTermDecl tt
+          Interactive -> returnUnit debugging e eval
+          InteractiveCEK -> return ()
+          RunVM -> return ()
+
+{-
+Bytecompile8    -> do tt <- tcDecl (C.Decl p x tm)
+                      addTermDecl tt
+-}
 
 returnUnit :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m ()
-returnUnit debugging d f = do evalAndAdd debugging d f
-                              -- printProfile
-                              return ()
+returnUnit debugging d f = do
+  evalAndAdd debugging d f
+  -- printProfile
+  return ()
 
 evalAndAdd :: (MonadFD4 m) => Bool -> C.Decl C.Term -> (C.TTerm -> m C.TTerm) -> m (C.Decl C.TTerm)
-evalAndAdd debugging d@(C.Decl p x tm) evalingFunction =  do
-          when debugging  $ printFD4 ("\nBefore Elaborating: "  ++ show d )
-          when debugging  $ printFD4 ("\nRaw: "                 ++ show tm)
-          tt <- tcDecl d
-          when debugging  $ printFD4 ("\nTypeChecked: "         ++ show tt)
-          mustOpt <- getOpt
-          when debugging  $ printFD4 ("\nOptimizing: ")
-          let optTerm =   if mustOpt then optim tt else tt
-          when debugging  $ printFD4 ("\nAfter Optimizing: "    ++ show optTerm)
-          when debugging  $ printFD4 ("\nEvaluating: ")
-          te <- evalingFunction optTerm.body
-          when debugging  $ printFD4 ("\nAfter Evaluating: "    ++ show te)
-          let evaluated = (C.Decl p x te) 
-          addTermDecl evaluated
-          return $ evaluated
+evalAndAdd debugging d@(C.Decl p x tm) evalingFunction = do
+  when debugging $ printFD4 ("\nBefore Elaborating: " ++ show d)
+  when debugging $ printFD4 ("\nRaw: " ++ show tm)
+  tt <- tcDecl d
+  when debugging $ printFD4 ("\nTypeChecked: " ++ show tt)
+  mustOpt <- getOpt
+  when debugging $ printFD4 ("\nOptimizing: ")
+  let optTerm = if mustOpt then optim tt else tt
+  when debugging $ printFD4 ("\nAfter Optimizing: " ++ show optTerm)
+  when debugging $ printFD4 ("\nEvaluating: ")
+  te <- evalingFunction optTerm.body
+  when debugging $ printFD4 ("\nAfter Evaluating: " ++ show te)
+  let evaluated = (C.Decl p x te)
+  addTermDecl evaluated
+  return $ evaluated
 
 data Command
   = Compile CompileForm
@@ -359,7 +366,7 @@ helpTxt cs =
       ( map
           ( \(Cmd c a _ d) ->
               let ct = intercalate ", " (map (++ if null a then "" else " " ++ a) c)
-              in ct ++ replicate ((24 - length ct) `max` 2) ' ' ++ d
+               in ct ++ replicate ((24 - length ct) `max` 2) ' ' ++ d
           )
           cs
       )

@@ -1,0 +1,10 @@
+let helper (x:Nat) : Nat =
+  let a : Nat = 2 + 3 in
+  let b : Nat = 5 + 7 in
+  let c : Nat = a + b in
+  let d : Nat = c + 0 in
+  let e : Nat = 0 + d in
+  let f : Nat = e - 0 in
+  x + f
+
+let main : Nat = print (helper 10)

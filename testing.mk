@@ -18,8 +18,8 @@ TESTS	:= $(shell find $(TESTDIRS) -name '*.fd4' -type f | sort)
 EXE	:= $(shell cabal exec whereis compiladores2023 | awk '{print $$2};')
 VM	:= ./vm/macc
 
-EXTRAFLAGS	:=
-# EXTRAFLAGS	+= --optimize --profiling
+# EXTRAFLAGS	:=
+EXTRAFLAGS	+= --optimize
 # EXTRAFLAGS	+= --profiling
 
 # Las reglas a chequear. Se puede deshabilitar toda una familia de tests
@@ -56,7 +56,7 @@ endif
 %.out: %
 
 %.opt_out: % $(EXE)
-	$(Q)$(EXE) $(EXTRAFLAGS) --typecheck --optimize $< > $@
+	$(Q)$(EXE) $(filter-out --optimize,$(EXTRAFLAGS)) --typecheck --optimize $< > $@
 
 # Aceptar la salida de los programas como correcta. Copia de la salida
 # real del evaluador hacia los .out que contienen la salida esperada.
@@ -123,7 +123,7 @@ accept: $(patsubst %,%.accept,$(TESTS))
 # la salida de --typecheck --optimize respecto a la esperada
 # (guardada en un archivo)
 %.actual_opt_out: % $(EXE)
-	$(Q)$(EXE) $(EXTRAFLAGS) --typecheck --optimize $< > $@
+	$(Q)$(EXE) $(filter-out --optimize,$(EXTRAFLAGS)) --typecheck --optimize $< > $@
 
 %.check_opt: %.opt_out %.actual_opt_out
 	$(Q)diff -u $^
@@ -137,7 +137,7 @@ accept: $(patsubst %,%.accept,$(TESTS))
 # suficiente.
 
 %.actual_out_eval_opt: % $(EXE)
-	$(Q)$(EXE) $(EXTRAFLAGS) --eval --optimize $< > $@
+	$(Q)$(EXE) $(filter-out --optimize,$(EXTRAFLAGS)) --eval --optimize $< > $@
 
 %.check_eval_opt: %.out %.actual_out_eval_opt
 	$(Q)diff -u $^

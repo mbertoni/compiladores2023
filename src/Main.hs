@@ -108,14 +108,14 @@ compile f = do
   let gNames = map (\d -> d.name) gdecls
   let gdeclReplaced = map (global2free gNames) gdecls
   mustOptimize <- getOpt
-  -- let gdeclReplaced = if mustOptimize then optim gdeclReplaced else gdeclReplaced
+  let gdeclOptimized = if mustOptimize then map optim gdeclReplaced else gdeclReplaced
   -- when mustOptimize $ saveTermBeforeOptimization gdeclReplaced
   initCompiling <- liftIO getCurrentTime
   -- when mustOptimize $ do initCompiling <- liftIO getCurrentTime
   --                        return ()
   case m of
     Bytecompile -> do
-      let bc = byteCompileModule gdeclReplaced
+      let bc = byteCompileModule gdeclOptimized
       let newFile = dropExtension f ++ ".bc32"
       liftIO $ bcWrite bc newFile
     -- printProfile
@@ -135,7 +135,7 @@ runVM f = do
   initTime <- liftIO getCurrentTime
   bc <- liftIO $ bcRead f
   runBC bc
-  -- printProfile
+  printProfile
   endTime <- liftIO getCurrentTime
   -- printFD4 $ "Tiempo consumido en ejecución de Bytecode: " ++ show (diffUTCTime endTime initTime)
   return ()
